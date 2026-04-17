@@ -6,6 +6,8 @@ You can then ask questions about your customers in plain English. Which group sp
 
 It turns raw customer data into clear segments and actionable insights in minutes.
 
+**TRY APP ONLINE**: **[InsightForge AI](https://insightforge-ai-3s9iwssbrkg3uf598xq5om.streamlit.app/)**
+
 ---
  
 ## Features
