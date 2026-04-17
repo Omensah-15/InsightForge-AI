@@ -57,3 +57,9 @@ The key can also be pasted directly into the sidebar at runtime without any file
 3. Click **Run Segmentation**
 4. Explore results across the Overview, Clustering, Visualizations, and AI Chat tabs
 
+---
+
+## Author
+
+**Mensah Obed**
+[Email](mailto:heavenzlebron7@gmail.com) · [LinkedIn](https://www.linkedin.com/in/obed-mensah-87001237b)
