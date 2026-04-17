@@ -1,1 +1,1 @@
-# InsightForge-AI
+# InsightForge AI
