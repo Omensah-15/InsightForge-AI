@@ -24,7 +24,7 @@ load_dotenv()
 # ─── Page config ────────────────────────────────────────────────────────────
 st.set_page_config(
     page_title="InsightForge AI",
-    page_icon="S",
+    page_icon="I",
     layout="wide",
     initial_sidebar_state="expanded",
 )
@@ -177,7 +177,7 @@ def call_ai(messages: list, system_prompt: str = "") -> str:
     """Call OpenRouter API (free models available)."""
     api_key = os.getenv("OPENROUTER_API_KEY", "")
     if not api_key:
-        return "No API key found. Set OPENROUTER_API_KEY in your .env file."
+        return "AI is not available at the moment. Please try again later."
 
     payload = {
         "model": "mistralai/mistral-7b-instruct:free",
@@ -192,8 +192,8 @@ def call_ai(messages: list, system_prompt: str = "") -> str:
             headers={
                 "Authorization": f"Bearer {api_key}",
                 "Content-Type": "application/json",
-                "HTTP-Referer": "https://segmentiq.app",
-                "X-Title": "SegmentIQ",
+                "HTTP-Referer": "https://insightforge.app",
+                "X-Title": "InsightForge AI",
             },
             json=payload,
             timeout=30,
@@ -491,7 +491,7 @@ if "categorical_cols" not in st.session_state:
 
 # ─── Sidebar ─────────────────────────────────────────────────────────────────
 with st.sidebar:
-    st.markdown("## SegmentIQ")
+    st.markdown("## InsightForge AI")
     st.markdown("---")
 
     uploaded = st.file_uploader("Upload CSV", type=["csv"])
@@ -529,16 +529,9 @@ with st.sidebar:
 
     run_btn = st.button("Run Segmentation", use_container_width=True)
 
-    st.markdown("---")
-    api_key_input = st.text_input("OpenRouter API Key", type="password",
-                                  placeholder="sk-or-...",
-                                  help="Get a free key at openrouter.ai")
-    if api_key_input:
-        os.environ["OPENROUTER_API_KEY"] = api_key_input
-
 
 # ─── Main area ───────────────────────────────────────────────────────────────
-st.markdown("# SegmentIQ")
+st.markdown("# InsightForge AI")
 st.markdown("Customer segmentation and AI-powered analysis")
 st.markdown("---")
 
