@@ -1,5 +1,4 @@
 import os
-import time
 import warnings
 import traceback
 import textwrap
@@ -163,50 +162,43 @@ def call_ai(messages: list, system_prompt: str = "") -> tuple:
 
     rate_limited = 0
     for model in FREE_MODELS:
-        for attempt in range(2):  # try each model twice before moving on
-            try:
-                resp = requests.post(
-                    "https://openrouter.ai/api/v1/chat/completions",
-                    headers=headers,
-                    json={
-                        "model": model,
-                        "messages": full_messages,
-                        "max_tokens": 1200,
-                        "temperature": 0.3,
-                    },
-                    timeout=45,
+        try:
+            resp = requests.post(
+                "https://openrouter.ai/api/v1/chat/completions",
+                headers=headers,
+                json={
+                    "model": model,
+                    "messages": full_messages,
+                    "max_tokens": 1200,
+                    "temperature": 0.3,
+                },
+                timeout=45,
+            )
+
+            if resp.status_code == 200:
+                content = resp.json()["choices"][0]["message"]["content"].strip()
+                if content:
+                    return content, False
+
+            elif resp.status_code == 429:
+                rate_limited += 1
+                continue  # try next model immediately
+
+            elif resp.status_code in (401, 403):
+                return (
+                    "API key rejected. Check that your OpenRouter key is correct "
+                    "in Streamlit Secrets.",
+                    True,
                 )
 
-                if resp.status_code == 200:
-                    content = resp.json()["choices"][0]["message"]["content"].strip()
-                    if content:
-                        return content, False
+        except requests.exceptions.Timeout:
+            continue
+        except Exception:
+            continue
 
-                elif resp.status_code == 429:
-                    rate_limited += 1
-                    if attempt == 0:
-                        time.sleep(2)  # brief wait then retry same model once
-                    break  # move to next model after retry
-
-                elif resp.status_code in (401, 403):
-                    return (
-                        "API key rejected. Check that your OpenRouter key is correct "
-                        "in Streamlit Secrets.",
-                        True,
-                    )
-
-                else:
-                    break  # non-retryable error, try next model
-
-            except requests.exceptions.Timeout:
-                break  # move to next model
-            except Exception:
-                break
-
-    if rate_limited >= len(FREE_MODELS):
+    if rate_limited > 0 and rate_limited >= len(FREE_MODELS):
         return (
-            "All AI models are currently busy due to high demand on free tier. "
-            "Please wait 30 seconds and try again.",
+            "All AI models are currently busy. Please wait 30 seconds and try again.",
             True,
         )
 
@@ -455,6 +447,8 @@ with st.sidebar:
     if uploaded is not None:
         file_bytes = uploaded.read()
         new_hash = hash(file_bytes)
+
+        # Reload whenever a new file is uploaded
         if st.session_state._file_hash != new_hash:
             reset_all()
             st.session_state._file_hash = new_hash
@@ -465,6 +459,14 @@ with st.sidebar:
             st.session_state.numerical_cols = num_cols
             st.session_state.categorical_cols = cat_cols
             st.session_state.selected_num = num_cols[:8]
+
+        # Always re-detect columns from stored df in case session state was lost
+        if st.session_state.df is not None and not st.session_state.numerical_cols:
+            num_cols, cat_cols = detect_column_types(st.session_state.df)
+            st.session_state.numerical_cols = num_cols
+            st.session_state.categorical_cols = cat_cols
+            if not st.session_state.selected_num:
+                st.session_state.selected_num = num_cols[:8]
 
     if st.session_state.df is not None:
         col_a, col_b = st.columns(2)
@@ -492,15 +494,24 @@ with st.sidebar:
 
     st.markdown("---")
     st.markdown("**Feature Selection**")
-    if st.session_state.numerical_cols:
+
+    num_options = st.session_state.numerical_cols
+    if num_options:
+        # Ensure defaults are valid options
+        valid_defaults = [c for c in st.session_state.selected_num if c in num_options]
+        if not valid_defaults:
+            valid_defaults = num_options[:8]
+
         selected_num = st.multiselect(
             "Numerical features",
-            options=st.session_state.numerical_cols,
-            default=st.session_state.selected_num,
+            options=num_options,
+            default=valid_defaults,
         )
         st.session_state.selected_num = selected_num
     else:
         selected_num = []
+        if st.session_state.df is not None:
+            st.caption("No numerical columns detected in this file.")
 
     st.markdown("")
     run_btn = st.button("Run Segmentation", use_container_width=True)
