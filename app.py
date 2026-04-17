@@ -1,4 +1,5 @@
 import os
+import time
 import warnings
 import traceback
 import textwrap
@@ -119,20 +120,34 @@ def reset_clustering():
         st.session_state[k] = DEFAULTS[k]
 
 
-# ─── Free models (tried in order until one works) ────────────────────────────
+# ─── Free models — full current list, tried in order ─────────────────────────
 FREE_MODELS = [
     "meta-llama/llama-3.3-70b-instruct:free",
     "google/gemma-3-27b-it:free",
+    "google/gemma-3-12b-it:free",
+    "google/gemma-3-4b-it:free",
+    "nvidia/nemotron-3-nano-30b-a3b:free",
     "nousresearch/hermes-3-llama-3.1-405b:free",
     "meta-llama/llama-3.2-3b-instruct:free",
+    "openai/gpt-oss-20b:free",
+    "arcee-ai/trinity-large-preview:free",
+    "minimax/minimax-m2.5:free",
 ]
 
 
 def call_ai(messages: list, system_prompt: str = "") -> tuple:
-    """Returns (text, is_error). Tries each free model in order."""
+    """
+    Returns (text, is_error).
+    Tries each free model in order. Skips 429 rate-limited models.
+    Retries once with a short delay before moving on.
+    """
     api_key = get_api_key()
     if not api_key:
-        return "AI unavailable: no API key configured.", True
+        return (
+            "The AI assistant is not configured yet. "
+            "Add your OpenRouter API key in Streamlit Cloud → Manage app → Settings → Secrets.",
+            True,
+        )
 
     full_messages = []
     if system_prompt:
@@ -146,25 +161,60 @@ def call_ai(messages: list, system_prompt: str = "") -> tuple:
         "X-Title": "InsightForge AI",
     }
 
-    last_error = ""
+    rate_limited = 0
     for model in FREE_MODELS:
-        try:
-            resp = requests.post(
-                "https://openrouter.ai/api/v1/chat/completions",
-                headers=headers,
-                json={"model": model, "messages": full_messages,
-                      "max_tokens": 1200, "temperature": 0.3},
-                timeout=45,
-            )
-            if resp.status_code == 200:
-                return resp.json()["choices"][0]["message"]["content"].strip(), False
-            last_error = f"{model}: HTTP {resp.status_code} — {resp.text[:150]}"
-        except requests.exceptions.Timeout:
-            last_error = f"{model}: timed out"
-        except Exception as e:
-            last_error = f"{model}: {e}"
+        for attempt in range(2):  # try each model twice before moving on
+            try:
+                resp = requests.post(
+                    "https://openrouter.ai/api/v1/chat/completions",
+                    headers=headers,
+                    json={
+                        "model": model,
+                        "messages": full_messages,
+                        "max_tokens": 1200,
+                        "temperature": 0.3,
+                    },
+                    timeout=45,
+                )
 
-    return f"All AI models failed. Last error: {last_error}", True
+                if resp.status_code == 200:
+                    content = resp.json()["choices"][0]["message"]["content"].strip()
+                    if content:
+                        return content, False
+
+                elif resp.status_code == 429:
+                    rate_limited += 1
+                    if attempt == 0:
+                        time.sleep(2)  # brief wait then retry same model once
+                    break  # move to next model after retry
+
+                elif resp.status_code in (401, 403):
+                    return (
+                        "API key rejected. Check that your OpenRouter key is correct "
+                        "in Streamlit Secrets.",
+                        True,
+                    )
+
+                else:
+                    break  # non-retryable error, try next model
+
+            except requests.exceptions.Timeout:
+                break  # move to next model
+            except Exception:
+                break
+
+    if rate_limited >= len(FREE_MODELS):
+        return (
+            "All AI models are currently busy due to high demand on free tier. "
+            "Please wait 30 seconds and try again.",
+            True,
+        )
+
+    return (
+        "The AI could not generate a response right now. "
+        "Please try rephrasing your question or try again in a moment.",
+        True,
+    )
 
 
 def get_dataset_context(df: pd.DataFrame, cluster_col: str = None) -> str:
