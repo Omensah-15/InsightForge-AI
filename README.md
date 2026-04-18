@@ -25,14 +25,14 @@ It turns raw customer data into clear segments and actionable insights in minute
 - [Streamlit](https://streamlit.io) — UI framework
 - [scikit-learn](https://scikit-learn.org) — KMeans, DBSCAN, PCA, preprocessing
 - [Plotly](https://plotly.com/python) — interactive visualizations
-- [OpenRouter](https://openrouter.ai) — free AI API (Mistral 7B by default)
+- [OpenRouter](https://openrouter.ai) — AI API (Mistral 7B)
 ---
-
+ 
 ## Local Setup
  
 ```bash
-git clone https://github.com/your-username/segmentiq.git
-cd segmentiq
+git clone https://github.com/your-username/insightforge-ai.git
+cd insightforge-ai
  
 pip install -r requirements.txt
  
@@ -50,9 +50,7 @@ streamlit run app.py
 OPENROUTER_API_KEY=sk-or-v1-your-key-here
 ```
  
-Get a free key at [openrouter.ai](https://openrouter.ai). No credit card required. The app uses `mistralai/mistral-7b-instruct:free` by default.
- 
-The key can also be pasted directly into the sidebar at runtime without any file changes.
+Get a free key at [openrouter.ai](https://openrouter.ai). No credit card required.
  
 ---
 
