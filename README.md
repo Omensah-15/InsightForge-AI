@@ -1,6 +1,6 @@
 # InsightForge AI
  
-Most businesses collect customer data, purchase history, demographics, spending habits, and never fully use it. InsightForge AI changes that. Upload your customer dataset and the app automatically groups your customers into meaningful segments based on their behavior and spending patterns with no coding and no data science team required.
+Most businesses collect customer data, purchase history, demographics, spending habits, and never fully use it. InsightForge AI changes that. Upload your customer dataset and the app automatically groups your customers into meaningful segments based on their behavior and spending patterns.
 
 You can then ask questions about your customers in plain English. Which group spends the most? Show me income vs spending by segment. The AI answers instantly, complete with charts.
 
