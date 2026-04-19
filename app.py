@@ -598,33 +598,43 @@ with st.sidebar:
             st.rerun()
 
     st.markdown("---")
-    st.markdown("**Clustering Model**")
-    model_choice = st.selectbox("Algorithm", ["KMeans", "DBSCAN"],
-                                label_visibility="collapsed")
+    st.markdown("**Segmentation Settings**")
+    model_choice = st.selectbox(
+        "Grouping method",
+        ["Auto (recommended)", "Density-based"],
+        label_visibility="collapsed",
+        help="Auto groups records by similarity. Density-based finds natural clusters of any shape.",
+    )
 
     k_val, eps_val, min_s = None, 0.5, 5
-    if model_choice == "KMeans":
-        auto_k = st.checkbox("Auto-select k (recommended)", value=True)
+    if model_choice == "Auto (recommended)":
+        auto_k = st.checkbox("Find number of groups automatically", value=True)
         if not auto_k:
-            k_val = st.slider("Number of clusters", 2, 15, 4)
+            k_val = st.slider("Number of groups", 2, 15, 4)
     else:
-        eps_val = st.slider("DBSCAN eps", 0.1, 5.0, 0.5, 0.1)
-        min_s = st.slider("Min samples", 2, 20, 5)
+        eps_val = st.slider("Sensitivity", 0.1, 5.0, 0.5, 0.1,
+                            help="How close records need to be to form a group.")
+        min_s = st.slider("Minimum group size", 2, 20, 5)
 
     st.markdown("---")
-    st.markdown("**Feature Selection**")
+    st.markdown("**Fields to Analyse**")
+    st.caption("Select the numerical fields to base segmentation on.")
     num_options = st.session_state.numerical_cols
     if num_options:
         valid_defaults = [c for c in st.session_state.selected_num if c in num_options]
         if not valid_defaults:
             valid_defaults = num_options[:8]
-        selected_num = st.multiselect("Numerical features", options=num_options,
-                                      default=valid_defaults)
+        selected_num = st.multiselect(
+            "Fields",
+            options=num_options,
+            default=valid_defaults,
+            label_visibility="collapsed",
+        )
         st.session_state.selected_num = selected_num
     else:
         selected_num = []
         if st.session_state.df is not None:
-            st.caption("No numerical columns detected. Clustering requires numerical data.")
+            st.caption("No numerical fields detected. Segmentation requires numerical data.")
 
     st.markdown("")
     run_btn = st.button("Run Segmentation", use_container_width=True)
@@ -660,17 +670,17 @@ if run_btn:
             scaled_json = scaled_df.to_json()
             st.session_state.scaled_df = scaled_df
 
-            if model_choice == "KMeans":
-                with st.spinner("Finding optimal clusters..."):
+            if model_choice == "Auto (recommended)":
+                with st.spinner("Finding optimal groups..."):
                     ks, inertias, sil_scores = compute_elbow(scaled_json)
                 st.session_state.ks = ks
                 st.session_state.inertias = inertias
                 st.session_state.sil_scores = sil_scores
                 best_k = ks[int(np.argmax(sil_scores))] if (auto_k and ks) else (k_val or 3)
-                with st.spinner(f"Running KMeans (k={best_k})..."):
+                with st.spinner(f"Analysing groups..."):
                     labels, sil, inertia = run_kmeans(scaled_json, best_k)
             else:
-                with st.spinner("Running DBSCAN..."):
+                with st.spinner("Analysing groups..."):
                     labels, n_found, sil = run_dbscan(scaled_json, eps_val, min_s)
 
             df_clustered = df.copy()
@@ -723,121 +733,415 @@ with tab2:
     if not st.session_state.clustering_done:
         if not numerical_cols:
             st.warning(
-                "This dataset has no numerical columns. "
-                "Clustering requires numerical data. "
+                "This dataset does not contain numerical fields. "
+                "Segmentation works by comparing numerical values across records. "
                 "Try the Visualizations tab to explore your data."
             )
         else:
-            st.info("Select features in the sidebar and click Run Segmentation.")
+            st.markdown("### Customer Segmentation")
+            st.markdown(
+                "Segmentation groups your records into distinct profiles based on "
+                "patterns in the data. Each group shares similar characteristics — "
+                "for example, high-value customers, occasional buyers, or at-risk accounts."
+            )
+            st.info("Choose your fields in the sidebar and click Run Segmentation to begin.")
     else:
         labels = st.session_state.cluster_labels
         df_clustered = st.session_state.df_clustered
         scaled_df = st.session_state.scaled_df
 
-        n_clusters = len(set(labels)) - (1 if -1 in labels else 0)
-        sil_final = silhouette_score(scaled_df, labels) if n_clusters > 1 else 0.0
+        n_groups = len(set(labels)) - (1 if -1 in labels else 0)
+        sil_final = silhouette_score(scaled_df, labels) if n_groups > 1 else 0.0
+        separation_pct = round(sil_final * 100)
 
-        c1, c2, c3 = st.columns(3)
-        for col, (label, value) in zip([c1, c2, c3], [
-            ("Clusters Found", str(n_clusters)),
-            ("Silhouette Score", f"{sil_final:.3f}"),
+        # Plain-language separation description
+        if sil_final >= 0.7:
+            separation_label = "Very well separated"
+        elif sil_final >= 0.5:
+            separation_label = "Well separated"
+        elif sil_final >= 0.3:
+            separation_label = "Moderately separated"
+        else:
+            separation_label = "Overlapping groups"
+
+        st.markdown("### Segmentation Results")
+
+        c1, c2, c3, c4 = st.columns(4)
+        for col, (label, value) in zip([c1, c2, c3, c4], [
+            ("Groups Found", str(n_groups)),
             ("Total Records", f"{len(df_clustered):,}"),
+            ("Group Separation", separation_label),
+            ("Fields Used", str(len(selected_num))),
         ]):
             col.markdown(
                 f'<div class="metric-card"><div class="label">{label}</div>'
-                f'<div class="value">{value}</div></div>',
+                f'<div class="value" style="font-size:1.1rem">{value}</div></div>',
                 unsafe_allow_html=True,
             )
 
-        st.markdown("### Cluster Sizes")
-        st.plotly_chart(plot_cluster_sizes(labels), use_container_width=True)
+        st.markdown("")
 
+        # Group size chart with plain labels
+        st.markdown("### How Records Are Distributed Across Groups")
+        size_data = pd.Series(labels).value_counts().sort_index().reset_index()
+        size_data.columns = ["Group", "Records"]
+        size_data["Group"] = size_data["Group"].apply(lambda x: f"Group {x + 1}")
+        size_data["Share"] = (size_data["Records"] / size_data["Records"].sum() * 100).round(1)
+        size_data["Label"] = size_data.apply(
+            lambda r: f"{r['Records']:,} records ({r['Share']}%)", axis=1
+        )
+        fig_sizes = px.bar(
+            size_data, x="Group", y="Records", color="Group",
+            text="Label",
+            color_discrete_sequence=PALETTE,
+            title="Records per Group",
+        )
+        fig_sizes.update_traces(textposition="outside")
+        fig_sizes.update_layout(showlegend=False, **BASE_LAYOUT, height=360)
+        fig_sizes.update_xaxes(gridcolor="#f1f5f9")
+        fig_sizes.update_yaxes(gridcolor="#f1f5f9")
+        st.plotly_chart(fig_sizes, use_container_width=True)
+
+        # Group profiles in plain language
         valid_num = [c for c in selected_num if c in df_clustered.columns]
         if valid_num:
-            st.markdown("### Cluster Profiles")
-            profile = df_clustered.groupby("Cluster")[valid_num].mean().round(3)
-            st.dataframe(profile, use_container_width=True)
-
-        if model_choice == "KMeans" and st.session_state.ks:
-            st.markdown("### Elbow Curve")
-            st.plotly_chart(
-                plot_elbow(st.session_state.ks, st.session_state.inertias,
-                           st.session_state.sil_scores),
-                use_container_width=True,
+            st.markdown("### Group Profiles")
+            st.caption(
+                "Average values for each field across groups. "
+                "Use this to understand what makes each group different."
             )
+            profile_raw = df_clustered.groupby("Cluster")[valid_num].mean().round(2)
+            profile_raw.index = [f"Group {i + 1}" for i in profile_raw.index]
+            profile_raw.index.name = "Group"
+            st.dataframe(profile_raw, use_container_width=True)
 
-        st.markdown("### Auto-Generated Insights")
-        insights = generate_rule_based_insights(df_clustered, "Cluster", selected_num)
-        if insights:
-            for insight in insights:
-                st.markdown(f'<div class="insight-box">{insight}</div>',
-                            unsafe_allow_html=True)
-        else:
-            st.caption("No significant differences detected between clusters.")
+            # Highlight what is distinctive per group
+            st.markdown("### What Makes Each Group Distinct")
+            overall_means = df_clustered[valid_num].mean()
+            for cluster in sorted(set(labels)):
+                subset = df_clustered[df_clustered["Cluster"] == cluster]
+                size = len(subset)
+                pct = round(100 * size / len(df_clustered), 1)
+                group_label = f"Group {cluster + 1}"
+                differences = []
+                for col in valid_num[:6]:
+                    cm = subset[col].mean()
+                    om = overall_means[col]
+                    if om == 0:
+                        continue
+                    diff = (cm - om) / abs(om) * 100
+                    if abs(diff) > 15:
+                        direction = "higher" if diff > 0 else "lower"
+                        differences.append(
+                            f"{col} is {abs(diff):.0f}% {direction} than average ({cm:.2f} vs {om:.2f})"
+                        )
+                if differences:
+                    summary = f"{group_label} — {size:,} records ({pct}%): " + "; ".join(differences)
+                else:
+                    summary = f"{group_label} — {size:,} records ({pct}%): Close to average across all fields."
+                st.markdown(
+                    f'<div class="insight-box">{summary}</div>',
+                    unsafe_allow_html=True,
+                )
 
-        st.markdown("### Clustered Data")
-        st.dataframe(df_clustered, use_container_width=True, height=350)
+        # Group scatter plot using PCA — with plain language
+        if st.session_state.scaled_df is not None:
+            st.markdown("### Visual Map of Groups")
+            st.caption(
+                "Each dot represents one record. Dots close together share similar "
+                "characteristics. Colour shows which group each record belongs to."
+            )
+            pca_coords, explained = compute_pca(scaled_df.to_json())
+            arr = np.array(pca_coords)
+            df_pca = pd.DataFrame({
+                "Dimension 1": arr[:, 0],
+                "Dimension 2": arr[:, 1],
+                "Group": [f"Group {l + 1}" for l in labels],
+            })
+            fig_pca = px.scatter(
+                df_pca, x="Dimension 1", y="Dimension 2", color="Group",
+                color_discrete_sequence=PALETTE,
+                title="Customer Map",
+            )
+            fig_pca.update_traces(marker=dict(size=7, opacity=0.75))
+            fig_pca = apply_base(fig_pca, 460)
+            st.plotly_chart(fig_pca, use_container_width=True)
+
+        if model_choice == "Auto (recommended)" and st.session_state.ks:
+            with st.expander("How the number of groups was chosen"):
+                st.caption(
+                    "The app tested different numbers of groups and measured how well-separated "
+                    "they were. The number with the highest separation score was selected automatically."
+                )
+                st.plotly_chart(
+                    plot_elbow(
+                        st.session_state.ks,
+                        st.session_state.inertias,
+                        st.session_state.sil_scores,
+                    ),
+                    use_container_width=True,
+                )
+
+        st.markdown("### Full Segmented Dataset")
+        display_df = df_clustered.copy()
+        display_df["Group"] = display_df["Cluster"].apply(lambda x: f"Group {x + 1}")
+        display_df = display_df.drop(columns=["Cluster"])
+        st.dataframe(display_df, use_container_width=True, height=350)
         st.download_button(
-            "Download Clustered CSV",
-            df_clustered.to_csv(index=False).encode(),
-            "clustered_data.csv", "text/csv",
+            "Download Segmented Data",
+            display_df.to_csv(index=False).encode(),
+            "segmented_data.csv",
+            "text/csv",
         )
 
 
 # ═══ TAB 3: Visualizations ════════════════════════════════════════════════════
 with tab3:
-    # Auto visuals — generated on upload, shown immediately
-    auto_visuals = st.session_state.auto_visuals
-    if auto_visuals:
-        st.markdown("### Data Overview Charts")
-        st.caption("These charts are generated automatically based on your dataset.")
-        for title, fig in auto_visuals:
-            st.plotly_chart(fig, use_container_width=True)
+    if df is None:
+        st.info("Upload a CSV file to start building charts.")
+        st.stop()
 
-    # Cluster visuals — shown after segmentation
-    if st.session_state.clustering_done:
-        df_clustered = st.session_state.df_clustered
-        scaled_df = st.session_state.scaled_df
-        labels = st.session_state.cluster_labels
-        valid_num = [c for c in selected_num if c in df_clustered.columns]
+    all_cols = df.columns.tolist()
+    num_cols_viz = [c for c in all_cols if pd.api.types.is_numeric_dtype(df[c])]
+    cat_cols_viz = [c for c in all_cols if not pd.api.types.is_numeric_dtype(df[c])]
 
-        st.markdown("### Cluster Visualizations")
+    # ── Chart Builder ────────────────────────────────────────────────────────
+    st.markdown("### Chart Builder")
+    st.caption("Select a chart type and configure the fields below. The chart updates instantly.")
 
-        st.markdown("#### PCA Cluster Projection")
-        pca_coords, explained = compute_pca(scaled_df.to_json())
-        st.plotly_chart(plot_pca_clusters(pca_coords, labels), use_container_width=True)
-        st.caption(
-            f"PC1 explains {explained[0]*100:.1f}% variance — "
-            f"PC2 explains {explained[1]*100:.1f}% variance"
+    CHART_TYPES = [
+        "Bar Chart",
+        "Line Chart",
+        "Scatter Plot",
+        "Histogram",
+        "Box Plot",
+        "Pie Chart",
+        "Area Chart",
+        "Heatmap (Correlation)",
+    ]
+
+    AGGREGATIONS = ["Sum", "Average", "Count", "Count Distinct", "Min", "Max", "Median"]
+
+    # Controls row
+    cc1, cc2, cc3 = st.columns([1, 1, 1])
+    chart_type = cc1.selectbox("Chart Type", CHART_TYPES, key="vz_chart_type")
+    color_col = cc3.selectbox(
+        "Colour by (optional)",
+        ["None"] + cat_cols_viz,
+        key="vz_color",
+    )
+
+    # Field selectors change based on chart type
+    x_col, y_col, agg_func = None, None, "Count"
+
+    if chart_type == "Histogram":
+        x_col = cc2.selectbox("Field", num_cols_viz or all_cols, key="vz_x")
+        bins = st.slider("Number of bins", 5, 100, 30, key="vz_bins")
+
+    elif chart_type == "Pie Chart":
+        x_col = cc2.selectbox("Category (slices)", cat_cols_viz or all_cols, key="vz_x")
+        if num_cols_viz:
+            y_col = st.selectbox(
+                "Value field (optional — leave blank to count records)",
+                ["Count records"] + num_cols_viz,
+                key="vz_y_pie",
+            )
+            if y_col == "Count records":
+                y_col = None
+            agg_func = st.selectbox("Aggregation", AGGREGATIONS, key="vz_agg_pie") if y_col else "Count"
+        else:
+            y_col = None
+
+    elif chart_type == "Heatmap (Correlation)":
+        selected_for_corr = st.multiselect(
+            "Select numerical fields for correlation",
+            options=num_cols_viz,
+            default=num_cols_viz[:8],
+            key="vz_corr_cols",
         )
 
-        if valid_num:
-            dist_fig = plot_feature_distributions(df_clustered, valid_num, "Cluster")
-            if dist_fig:
-                st.markdown("#### Feature Distributions by Cluster")
-                st.plotly_chart(dist_fig, use_container_width=True)
+    elif chart_type == "Scatter Plot":
+        fc1, fc2, fc3 = st.columns(3)
+        x_col = fc1.selectbox("X axis", num_cols_viz or all_cols, key="vz_x")
+        y_col = fc2.selectbox(
+            "Y axis",
+            [c for c in (num_cols_viz or all_cols) if c != x_col] or all_cols,
+            key="vz_y",
+        )
+        size_col = fc3.selectbox("Size by (optional)", ["None"] + num_cols_viz, key="vz_size")
 
-            if len(valid_num) > 1:
-                st.markdown("#### Correlation Heatmap")
-                st.plotly_chart(plot_correlation(df_clustered, valid_num),
-                                use_container_width=True)
+    else:
+        # Bar, Line, Box, Area — all follow x + y + aggregation pattern
+        fc1, fc2, fc3 = st.columns(3)
 
-        if len(valid_num) >= 2:
-            st.markdown("#### Custom Scatter")
-            ca, cb = st.columns(2)
-            x_col = ca.selectbox("X axis", valid_num, index=0, key="sx")
-            y_col = cb.selectbox("Y axis", valid_num,
-                                 index=min(1, len(valid_num) - 1), key="sy")
-            fig_sc = px.scatter(df_clustered, x=x_col, y=y_col,
-                                color=df_clustered["Cluster"].astype(str),
-                                color_discrete_sequence=PALETTE,
-                                title=f"{x_col} vs {y_col}")
-            fig_sc.update_traces(marker=dict(size=6, opacity=0.8))
-            fig_sc = apply_base(fig_sc)
-            st.plotly_chart(fig_sc, use_container_width=True)
+        if chart_type in ["Box Plot"]:
+            x_col = fc1.selectbox("Category (X axis)", cat_cols_viz or all_cols, key="vz_x")
+            y_col = fc2.selectbox("Value (Y axis)", num_cols_viz or all_cols, key="vz_y")
+        elif chart_type in ["Line Chart", "Area Chart"]:
+            x_col = fc1.selectbox("X axis", all_cols, key="vz_x")
+            y_col = fc2.selectbox("Y axis", num_cols_viz or all_cols, key="vz_y")
+            agg_func = fc3.selectbox("Aggregation", AGGREGATIONS, key="vz_agg")
+        else:
+            # Bar chart — most flexible
+            x_col = fc1.selectbox("X axis (Category or Field)", all_cols, key="vz_x")
+            y_col = fc2.selectbox(
+                "Y axis (Value — leave as Count to count records)",
+                ["Count records"] + num_cols_viz,
+                key="vz_y_bar",
+            )
+            if y_col == "Count records":
+                y_col = None
+                agg_func = "Count"
+            else:
+                agg_func = fc3.selectbox("Aggregation", AGGREGATIONS, key="vz_agg")
 
-    elif not auto_visuals:
-        st.info("Upload a CSV file to see automatic charts here.")
+    # ── Apply aggregation and build chart ─────────────────────────────────────
+    def apply_aggregation(df, x_col, y_col, agg_func, color_col=None):
+        """Aggregate df by x_col (and optionally color_col) using agg_func on y_col."""
+        group_cols = [x_col]
+        if color_col and color_col != "None" and color_col in df.columns:
+            group_cols.append(color_col)
+
+        if y_col is None or agg_func == "Count":
+            agg_df = df.groupby(group_cols).size().reset_index(name="Count")
+            return agg_df, "Count"
+
+        agg_map = {
+            "Sum": "sum",
+            "Average": "mean",
+            "Min": "min",
+            "Max": "max",
+            "Median": "median",
+            "Count Distinct": "nunique",
+            "Count": "count",
+        }
+        agg_df = df.groupby(group_cols)[y_col].agg(agg_map[agg_func]).reset_index()
+        agg_df.columns = group_cols + [f"{agg_func} of {y_col}"]
+        return agg_df, f"{agg_func} of {y_col}"
+
+    # Build and display chart
+    chart_error = None
+    fig_vz = None
+
+    try:
+        color_val = color_col if color_col != "None" and color_col in df.columns else None
+
+        if chart_type == "Histogram":
+            fig_vz = px.histogram(
+                df, x=x_col,
+                nbins=bins,
+                color=color_val,
+                color_discrete_sequence=PALETTE,
+                title=f"Distribution of {x_col}",
+            )
+
+        elif chart_type == "Pie Chart":
+            if y_col and agg_func != "Count":
+                agg_map_pie = {"Sum": "sum", "Average": "mean", "Count": "count",
+                               "Min": "min", "Max": "max", "Median": "median",
+                               "Count Distinct": "nunique"}
+                pie_data = df.groupby(x_col)[y_col].agg(agg_map_pie[agg_func]).reset_index()
+                pie_data.columns = [x_col, "Value"]
+            else:
+                pie_data = df[x_col].value_counts().reset_index()
+                pie_data.columns = [x_col, "Value"]
+            fig_vz = px.pie(
+                pie_data, names=x_col, values="Value",
+                color_discrete_sequence=PALETTE,
+                title=f"{x_col} breakdown",
+            )
+
+        elif chart_type == "Scatter Plot":
+            size_val = size_col if size_col != "None" else None
+            fig_vz = px.scatter(
+                df, x=x_col, y=y_col,
+                color=color_val,
+                size=size_val,
+                color_discrete_sequence=PALETTE,
+                title=f"{x_col} vs {y_col}",
+                opacity=0.7,
+            )
+            fig_vz.update_traces(marker=dict(size=8 if not size_val else None))
+
+        elif chart_type == "Box Plot":
+            fig_vz = px.box(
+                df, x=x_col, y=y_col,
+                color=color_val or x_col,
+                color_discrete_sequence=PALETTE,
+                title=f"{y_col} by {x_col}",
+            )
+
+        elif chart_type == "Heatmap (Correlation)":
+            if len(selected_for_corr) < 2:
+                chart_error = "Select at least 2 numerical fields to generate a correlation heatmap."
+            else:
+                corr = df[selected_for_corr].corr()
+                fig_vz = px.imshow(
+                    corr, text_auto=".2f", aspect="auto",
+                    color_continuous_scale="RdBu_r",
+                    title="Correlation Heatmap",
+                )
+
+        elif chart_type == "Line Chart":
+            agg_df, y_label = apply_aggregation(df, x_col, y_col, agg_func, color_val)
+            line_color = color_val if color_val and color_val in agg_df.columns else None
+            fig_vz = px.line(
+                agg_df, x=x_col, y=y_label,
+                color=line_color,
+                color_discrete_sequence=PALETTE,
+                title=f"{y_label} by {x_col}",
+                markers=True,
+            )
+
+        elif chart_type == "Area Chart":
+            agg_df, y_label = apply_aggregation(df, x_col, y_col, agg_func, color_val)
+            area_color = color_val if color_val and color_val in agg_df.columns else None
+            fig_vz = px.area(
+                agg_df, x=x_col, y=y_label,
+                color=area_color,
+                color_discrete_sequence=PALETTE,
+                title=f"{y_label} by {x_col}",
+            )
+
+        else:
+            # Bar Chart
+            agg_df, y_label = apply_aggregation(df, x_col, y_col, agg_func, color_val)
+            bar_color = color_val if color_val and color_val in agg_df.columns else x_col
+            if bar_color not in agg_df.columns:
+                bar_color = None
+            sort_vals = agg_df.sort_values(y_label, ascending=False)
+            fig_vz = px.bar(
+                sort_vals, x=x_col, y=y_label,
+                color=bar_color,
+                color_discrete_sequence=PALETTE,
+                title=f"{y_label} by {x_col}",
+                text=y_label,
+            )
+            fig_vz.update_traces(texttemplate="%{text:,.1f}", textposition="outside")
+
+    except Exception as e:
+        chart_error = str(e)
+
+    if chart_error:
+        st.warning(f"Could not build chart: {chart_error}")
+    elif fig_vz is not None:
+        fig_vz = apply_base(fig_vz, 460)
+        if chart_type not in ["Pie Chart", "Heatmap (Correlation)"]:
+            fig_vz.update_xaxes(gridcolor="#f1f5f9")
+            fig_vz.update_yaxes(gridcolor="#f1f5f9")
+        st.plotly_chart(fig_vz, use_container_width=True)
+
+    st.markdown("---")
+
+    # ── Auto Overview Charts ──────────────────────────────────────────────────
+    auto_visuals = st.session_state.auto_visuals
+    if auto_visuals:
+        st.markdown("### Auto-Generated Overview")
+        st.caption("These charts are built automatically from your data on upload.")
+        for title, fig_auto in auto_visuals:
+            st.plotly_chart(fig_auto, use_container_width=True)
+    elif not auto_visuals and df is not None:
+        st.info("Upload a CSV file to see automatic overview charts.")
 
 
 # ═══ TAB 4: AI Chat ═══════════════════════════════════════════════════════════
