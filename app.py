@@ -91,6 +91,7 @@ h1, h2, h3 { font-family: 'IBM Plex Mono', monospace; letter-spacing: -0.03em; }
 DEFAULTS = {
     "chat_history": [],
     "df": None,
+    "df_edited": None,
     "df_clustered": None,
     "cluster_labels": None,
     "scaled_df": None,
@@ -119,6 +120,20 @@ def reset_clustering():
     for k in ["df_clustered", "cluster_labels", "scaled_df",
               "clustering_done", "ks", "inertias", "sil_scores", "chat_history"]:
         st.session_state[k] = DEFAULTS[k]
+
+
+def apply_edits_to_pipeline():
+    """Recompute column types and auto-visuals after data edits."""
+    active_df = st.session_state.df_edited if st.session_state.df_edited is not None else st.session_state.df
+    if active_df is None:
+        return
+    num_cols, cat_cols, txt_cols = detect_column_types(active_df)
+    st.session_state.numerical_cols = num_cols
+    st.session_state.categorical_cols = cat_cols
+    st.session_state.text_cols = txt_cols
+    st.session_state.selected_num = num_cols[:8]
+    st.session_state.auto_visuals = generate_auto_visuals(active_df, num_cols, cat_cols)
+    reset_clustering()
 
 
 # ─── AI models ────────────────────────────────────────────────────────────────
@@ -593,7 +608,7 @@ with st.sidebar:
         if ca.button("Clear Data", use_container_width=True):
             reset_all()
             st.rerun()
-        if cb.button("Reset Clusters", use_container_width=True):
+        if cb.button("Reset Segments", use_container_width=True):
             reset_clustering()
             st.rerun()
 
@@ -642,14 +657,14 @@ with st.sidebar:
 
 # ─── Main ─────────────────────────────────────────────────────────────────────
 st.markdown("# InsightForge AI")
-st.markdown("AI-powered customer segmentation and data analysis")
+st.markdown("Customer segmentation and data analysis")
 st.markdown("---")
 
 if st.session_state.df is None:
     st.info("Upload a CSV file from the sidebar to get started.")
     st.stop()
 
-df = st.session_state.df
+df = st.session_state.df_edited if st.session_state.df_edited is not None else st.session_state.df
 numerical_cols = st.session_state.numerical_cols
 categorical_cols = st.session_state.categorical_cols
 
@@ -698,10 +713,11 @@ tab1, tab2, tab3, tab4 = st.tabs(["Overview", "Clustering", "Visualizations", "A
 
 # ═══ TAB 1: Overview ══════════════════════════════════════════════════════════
 with tab1:
+    # ── Summary metrics ───────────────────────────────────────────────────────
     c1, c2, c3, c4 = st.columns(4)
     for col, (label, value) in zip([c1, c2, c3, c4], [
-        ("Rows", f"{df.shape[0]:,}"),
-        ("Columns", str(df.shape[1])),
+        ("Records", f"{df.shape[0]:,}"),
+        ("Fields", str(df.shape[1])),
         ("Numerical", str(len(numerical_cols))),
         ("Categorical", str(len(categorical_cols))),
     ]):
@@ -711,20 +727,207 @@ with tab1:
             unsafe_allow_html=True,
         )
 
-    st.markdown("### Data Preview")
-    st.dataframe(df.head(100), use_container_width=True, height=320)
+    st.markdown("")
 
-    st.markdown("### Schema")
-    st.dataframe(pd.DataFrame({
-        "Column": df.columns,
-        "Type": [str(df[c].dtype) for c in df.columns],
-        "Non-null": [int(df[c].notna().sum()) for c in df.columns],
-        "Null %": [f"{df[c].isna().mean()*100:.1f}%" for c in df.columns],
-        "Unique": [int(df[c].nunique()) for c in df.columns],
-    }), use_container_width=True)
+    # ── Data preview with editing panel ───────────────────────────────────────
+    prev_col, menu_col = st.columns([6, 1])
+    prev_col.markdown("### Data Preview")
 
+    with menu_col:
+        st.markdown("<div style='margin-top:28px'></div>", unsafe_allow_html=True)
+        with st.popover("...  Edit"):
+            st.markdown("**Quick Data Actions**")
+            st.caption("Changes apply to all tabs. Segmentation resets on each change.")
+
+            action = st.selectbox(
+                "Action",
+                [
+                    "Remove duplicate rows",
+                    "Drop rows with missing values",
+                    "Fill missing values — numeric (mean)",
+                    "Fill missing values — numeric (median)",
+                    "Fill missing values — numeric (zero)",
+                    "Fill missing values — text (blank)",
+                    "Rename a column",
+                    "Drop a column",
+                    "Change column type",
+                    "Filter rows by value",
+                    "Reset all edits",
+                ],
+                key="edit_action",
+                label_visibility="collapsed",
+            )
+
+            active_df = (
+                st.session_state.df_edited
+                if st.session_state.df_edited is not None
+                else st.session_state.df
+            )
+
+            if action == "Remove duplicate rows":
+                before = len(active_df)
+                if st.button("Apply", key="apply_dedup"):
+                    result = active_df.drop_duplicates().reset_index(drop=True)
+                    removed = before - len(result)
+                    st.session_state.df_edited = result
+                    apply_edits_to_pipeline()
+                    st.success(f"Removed {removed} duplicate rows.")
+                    st.rerun()
+
+            elif action == "Drop rows with missing values":
+                n_missing_rows = int(active_df.isnull().any(axis=1).sum())
+                st.caption(f"{n_missing_rows} rows have at least one missing value.")
+                if st.button("Apply", key="apply_dropna"):
+                    result = active_df.dropna().reset_index(drop=True)
+                    st.session_state.df_edited = result
+                    apply_edits_to_pipeline()
+                    st.success(f"Dropped {n_missing_rows} rows.")
+                    st.rerun()
+
+            elif action == "Fill missing values — numeric (mean)":
+                if st.button("Apply", key="apply_fill_mean"):
+                    result = active_df.copy()
+                    for c in result.select_dtypes(include=[np.number]).columns:
+                        result[c] = result[c].fillna(result[c].mean())
+                    st.session_state.df_edited = result
+                    apply_edits_to_pipeline()
+                    st.success("Filled missing numeric values with column mean.")
+                    st.rerun()
+
+            elif action == "Fill missing values — numeric (median)":
+                if st.button("Apply", key="apply_fill_median"):
+                    result = active_df.copy()
+                    for c in result.select_dtypes(include=[np.number]).columns:
+                        result[c] = result[c].fillna(result[c].median())
+                    st.session_state.df_edited = result
+                    apply_edits_to_pipeline()
+                    st.success("Filled missing numeric values with column median.")
+                    st.rerun()
+
+            elif action == "Fill missing values — numeric (zero)":
+                if st.button("Apply", key="apply_fill_zero"):
+                    result = active_df.copy()
+                    for c in result.select_dtypes(include=[np.number]).columns:
+                        result[c] = result[c].fillna(0)
+                    st.session_state.df_edited = result
+                    apply_edits_to_pipeline()
+                    st.success("Filled missing numeric values with 0.")
+                    st.rerun()
+
+            elif action == "Fill missing values — text (blank)":
+                if st.button("Apply", key="apply_fill_blank"):
+                    result = active_df.copy()
+                    for c in result.select_dtypes(include=["object", "string"]).columns:
+                        result[c] = result[c].fillna("")
+                    st.session_state.df_edited = result
+                    apply_edits_to_pipeline()
+                    st.success("Filled missing text values with blank.")
+                    st.rerun()
+
+            elif action == "Rename a column":
+                col_to_rename = st.selectbox("Column", active_df.columns.tolist(), key="rename_col")
+                new_name = st.text_input("New name", value=col_to_rename, key="rename_val")
+                if st.button("Apply", key="apply_rename"):
+                    if new_name.strip() and new_name.strip() != col_to_rename:
+                        result = active_df.rename(columns={col_to_rename: new_name.strip()})
+                        st.session_state.df_edited = result
+                        apply_edits_to_pipeline()
+                        st.success(f"Renamed '{col_to_rename}' to '{new_name.strip()}'.")
+                        st.rerun()
+                    else:
+                        st.warning("Enter a different name.")
+
+            elif action == "Drop a column":
+                col_to_drop = st.selectbox("Column to drop", active_df.columns.tolist(), key="drop_col")
+                if st.button("Apply", key="apply_drop_col"):
+                    result = active_df.drop(columns=[col_to_drop])
+                    st.session_state.df_edited = result
+                    apply_edits_to_pipeline()
+                    st.success(f"Dropped column '{col_to_drop}'.")
+                    st.rerun()
+
+            elif action == "Change column type":
+                col_to_cast = st.selectbox("Column", active_df.columns.tolist(), key="cast_col")
+                target_type = st.selectbox(
+                    "Convert to",
+                    ["Numeric", "Text", "Date/Time"],
+                    key="cast_type",
+                )
+                if st.button("Apply", key="apply_cast"):
+                    result = active_df.copy()
+                    try:
+                        if target_type == "Numeric":
+                            result[col_to_cast] = pd.to_numeric(result[col_to_cast], errors="coerce")
+                        elif target_type == "Text":
+                            result[col_to_cast] = result[col_to_cast].astype(str)
+                        elif target_type == "Date/Time":
+                            result[col_to_cast] = pd.to_datetime(result[col_to_cast], errors="coerce")
+                        st.session_state.df_edited = result
+                        apply_edits_to_pipeline()
+                        st.success(f"Converted '{col_to_cast}' to {target_type}.")
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"Could not convert: {e}")
+
+            elif action == "Filter rows by value":
+                filter_col = st.selectbox("Field", active_df.columns.tolist(), key="filter_col")
+                unique_vals = active_df[filter_col].dropna().unique().tolist()
+                if len(unique_vals) <= 50:
+                    keep_vals = st.multiselect(
+                        "Keep rows where value is",
+                        options=unique_vals,
+                        default=unique_vals,
+                        key="filter_vals",
+                    )
+                    if st.button("Apply", key="apply_filter"):
+                        result = active_df[active_df[filter_col].isin(keep_vals)].reset_index(drop=True)
+                        st.session_state.df_edited = result
+                        apply_edits_to_pipeline()
+                        st.success(f"Filtered to {len(result):,} rows.")
+                        st.rerun()
+                else:
+                    st.caption("Too many unique values to filter by selection. Use AI Chat to filter programmatically.")
+
+            elif action == "Reset all edits":
+                if st.button("Reset to original data", key="apply_reset"):
+                    st.session_state.df_edited = None
+                    apply_edits_to_pipeline()
+                    st.success("Data reset to original upload.")
+                    st.rerun()
+
+    # Preview
+    is_edited = st.session_state.df_edited is not None
+    if is_edited:
+        st.caption("Showing edited data. Original has not been modified.")
+    st.dataframe(df.head(200), use_container_width=True, height=340)
+
+    # Export edited data
+    if is_edited:
+        st.download_button(
+            "Download edited data",
+            df.to_csv(index=False).encode(),
+            "edited_data.csv",
+            "text/csv",
+        )
+
+    # ── Schema ────────────────────────────────────────────────────────────────
+    st.markdown("### Field Summary")
+    schema_rows = []
+    for c in df.columns:
+        n_null = int(df[c].isna().sum())
+        schema_rows.append({
+            "Field": c,
+            "Type": str(df[c].dtype),
+            "Non-null": int(df[c].notna().sum()),
+            "Missing": n_null,
+            "Missing %": f"{df[c].isna().mean()*100:.1f}%",
+            "Unique values": int(df[c].nunique()),
+        })
+    st.dataframe(pd.DataFrame(schema_rows), use_container_width=True)
+
+    # ── Stats ─────────────────────────────────────────────────────────────────
     if numerical_cols:
-        st.markdown("### Descriptive Statistics")
+        st.markdown("### Summary Statistics")
         st.dataframe(df[numerical_cols].describe().round(3), use_container_width=True)
 
 
@@ -1159,16 +1362,17 @@ with tab4:
 
     working_df = (
         st.session_state.df_clustered
-        if st.session_state.df_clustered is not None else df
+        if st.session_state.df_clustered is not None
+        else (st.session_state.df_edited if st.session_state.df_edited is not None else df)
     )
     cluster_col = "Cluster" if st.session_state.df_clustered is not None else None
     exact_cols = [c.strip() for c in working_df.columns.tolist()]
 
     st.markdown(
-        "Ask anything about your data. For example:\n"
-        "- *What patterns do you see in this dataset?*\n"
+        "Ask questions about your data or request a chart.\n\n"
+        "- *What patterns do you see in this data?*\n"
         "- *Show a bar chart of Sentiment by Location*\n"
-        "- *Which location has the highest confidence score?*"
+        "- *Which location has the highest average confidence score?*"
     )
     st.markdown("---")
 
@@ -1210,7 +1414,7 @@ with tab4:
                 )
 
     # Chat input
-    user_input = st.chat_input("Ask about your data or request a chart...")
+    user_input = st.chat_input("Ask a question or request a chart...")
 
     if user_input:
         st.session_state.chat_history.append({"role": "user", "content": user_input})
