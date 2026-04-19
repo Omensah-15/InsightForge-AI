@@ -729,179 +729,19 @@ with tab1:
 
     st.markdown("")
 
-    # ── Data preview with editing panel ───────────────────────────────────────
-    prev_col, menu_col = st.columns([6, 1])
-    prev_col.markdown("### Data Preview")
-
-    with menu_col:
-        st.markdown("<div style='margin-top:28px'></div>", unsafe_allow_html=True)
-        with st.popover("...  Edit"):
-            st.markdown("**Quick Data Actions**")
-            st.caption("Changes apply to all tabs. Segmentation resets on each change.")
-
-            action = st.selectbox(
-                "Action",
-                [
-                    "Remove duplicate rows",
-                    "Drop rows with missing values",
-                    "Fill missing values — numeric (mean)",
-                    "Fill missing values — numeric (median)",
-                    "Fill missing values — numeric (zero)",
-                    "Fill missing values — text (blank)",
-                    "Rename a column",
-                    "Drop a column",
-                    "Change column type",
-                    "Filter rows by value",
-                    "Reset all edits",
-                ],
-                key="edit_action",
-                label_visibility="collapsed",
-            )
-
-            active_df = (
-                st.session_state.df_edited
-                if st.session_state.df_edited is not None
-                else st.session_state.df
-            )
-
-            if action == "Remove duplicate rows":
-                before = len(active_df)
-                if st.button("Apply", key="apply_dedup"):
-                    result = active_df.drop_duplicates().reset_index(drop=True)
-                    removed = before - len(result)
-                    st.session_state.df_edited = result
-                    apply_edits_to_pipeline()
-                    st.success(f"Removed {removed} duplicate rows.")
-                    st.rerun()
-
-            elif action == "Drop rows with missing values":
-                n_missing_rows = int(active_df.isnull().any(axis=1).sum())
-                st.caption(f"{n_missing_rows} rows have at least one missing value.")
-                if st.button("Apply", key="apply_dropna"):
-                    result = active_df.dropna().reset_index(drop=True)
-                    st.session_state.df_edited = result
-                    apply_edits_to_pipeline()
-                    st.success(f"Dropped {n_missing_rows} rows.")
-                    st.rerun()
-
-            elif action == "Fill missing values — numeric (mean)":
-                if st.button("Apply", key="apply_fill_mean"):
-                    result = active_df.copy()
-                    for c in result.select_dtypes(include=[np.number]).columns:
-                        result[c] = result[c].fillna(result[c].mean())
-                    st.session_state.df_edited = result
-                    apply_edits_to_pipeline()
-                    st.success("Filled missing numeric values with column mean.")
-                    st.rerun()
-
-            elif action == "Fill missing values — numeric (median)":
-                if st.button("Apply", key="apply_fill_median"):
-                    result = active_df.copy()
-                    for c in result.select_dtypes(include=[np.number]).columns:
-                        result[c] = result[c].fillna(result[c].median())
-                    st.session_state.df_edited = result
-                    apply_edits_to_pipeline()
-                    st.success("Filled missing numeric values with column median.")
-                    st.rerun()
-
-            elif action == "Fill missing values — numeric (zero)":
-                if st.button("Apply", key="apply_fill_zero"):
-                    result = active_df.copy()
-                    for c in result.select_dtypes(include=[np.number]).columns:
-                        result[c] = result[c].fillna(0)
-                    st.session_state.df_edited = result
-                    apply_edits_to_pipeline()
-                    st.success("Filled missing numeric values with 0.")
-                    st.rerun()
-
-            elif action == "Fill missing values — text (blank)":
-                if st.button("Apply", key="apply_fill_blank"):
-                    result = active_df.copy()
-                    for c in result.select_dtypes(include=["object", "string"]).columns:
-                        result[c] = result[c].fillna("")
-                    st.session_state.df_edited = result
-                    apply_edits_to_pipeline()
-                    st.success("Filled missing text values with blank.")
-                    st.rerun()
-
-            elif action == "Rename a column":
-                col_to_rename = st.selectbox("Column", active_df.columns.tolist(), key="rename_col")
-                new_name = st.text_input("New name", value=col_to_rename, key="rename_val")
-                if st.button("Apply", key="apply_rename"):
-                    if new_name.strip() and new_name.strip() != col_to_rename:
-                        result = active_df.rename(columns={col_to_rename: new_name.strip()})
-                        st.session_state.df_edited = result
-                        apply_edits_to_pipeline()
-                        st.success(f"Renamed '{col_to_rename}' to '{new_name.strip()}'.")
-                        st.rerun()
-                    else:
-                        st.warning("Enter a different name.")
-
-            elif action == "Drop a column":
-                col_to_drop = st.selectbox("Column to drop", active_df.columns.tolist(), key="drop_col")
-                if st.button("Apply", key="apply_drop_col"):
-                    result = active_df.drop(columns=[col_to_drop])
-                    st.session_state.df_edited = result
-                    apply_edits_to_pipeline()
-                    st.success(f"Dropped column '{col_to_drop}'.")
-                    st.rerun()
-
-            elif action == "Change column type":
-                col_to_cast = st.selectbox("Column", active_df.columns.tolist(), key="cast_col")
-                target_type = st.selectbox(
-                    "Convert to",
-                    ["Numeric", "Text", "Date/Time"],
-                    key="cast_type",
-                )
-                if st.button("Apply", key="apply_cast"):
-                    result = active_df.copy()
-                    try:
-                        if target_type == "Numeric":
-                            result[col_to_cast] = pd.to_numeric(result[col_to_cast], errors="coerce")
-                        elif target_type == "Text":
-                            result[col_to_cast] = result[col_to_cast].astype(str)
-                        elif target_type == "Date/Time":
-                            result[col_to_cast] = pd.to_datetime(result[col_to_cast], errors="coerce")
-                        st.session_state.df_edited = result
-                        apply_edits_to_pipeline()
-                        st.success(f"Converted '{col_to_cast}' to {target_type}.")
-                        st.rerun()
-                    except Exception as e:
-                        st.error(f"Could not convert: {e}")
-
-            elif action == "Filter rows by value":
-                filter_col = st.selectbox("Field", active_df.columns.tolist(), key="filter_col")
-                unique_vals = active_df[filter_col].dropna().unique().tolist()
-                if len(unique_vals) <= 50:
-                    keep_vals = st.multiselect(
-                        "Keep rows where value is",
-                        options=unique_vals,
-                        default=unique_vals,
-                        key="filter_vals",
-                    )
-                    if st.button("Apply", key="apply_filter"):
-                        result = active_df[active_df[filter_col].isin(keep_vals)].reset_index(drop=True)
-                        st.session_state.df_edited = result
-                        apply_edits_to_pipeline()
-                        st.success(f"Filtered to {len(result):,} rows.")
-                        st.rerun()
-                else:
-                    st.caption("Too many unique values to filter by selection. Use AI Chat to filter programmatically.")
-
-            elif action == "Reset all edits":
-                if st.button("Reset to original data", key="apply_reset"):
-                    st.session_state.df_edited = None
-                    apply_edits_to_pipeline()
-                    st.success("Data reset to original upload.")
-                    st.rerun()
-
-    # Preview
+    # ── Data Preview ──────────────────────────────────────────────────────────
     is_edited = st.session_state.df_edited is not None
+
+    preview_label = "Data Preview"
     if is_edited:
-        st.caption("Showing edited data. Original has not been modified.")
+        preview_label += "  —  edited"
+    st.markdown(f"### {preview_label}")
+
+    if is_edited:
+        st.caption("You are working on an edited version of the original file.")
+
     st.dataframe(df.head(200), use_container_width=True, height=340)
 
-    # Export edited data
     if is_edited:
         st.download_button(
             "Download edited data",
@@ -909,6 +749,176 @@ with tab1:
             "edited_data.csv",
             "text/csv",
         )
+
+    # ── Data Editor ───────────────────────────────────────────────────────────
+    with st.expander("Data Actions", expanded=False):
+        st.caption("Clean, reshape, or filter your data. Every change applies across all tabs and resets segmentation.")
+
+        active_df = (
+            st.session_state.df_edited
+            if st.session_state.df_edited is not None
+            else st.session_state.df
+        )
+
+        ea1, ea2 = st.columns([2, 1])
+        action = ea1.selectbox(
+            "Action",
+            [
+                "Select an action...",
+                "Remove duplicate rows",
+                "Drop rows with missing values",
+                "Fill missing — numeric (mean)",
+                "Fill missing — numeric (median)",
+                "Fill missing — numeric (zero)",
+                "Fill missing — text (blank)",
+                "Rename a column",
+                "Drop a column",
+                "Change column type",
+                "Filter rows by value",
+                "Reset all edits",
+            ],
+            key="edit_action",
+        )
+
+        if action == "Select an action...":
+            st.caption("Choose an action from the dropdown to see options.")
+
+        elif action == "Remove duplicate rows":
+            n_dups = int(active_df.duplicated().sum())
+            st.caption(f"{n_dups} duplicate rows found.")
+            if st.button("Remove duplicates", key="apply_dedup"):
+                result = active_df.drop_duplicates().reset_index(drop=True)
+                st.session_state.df_edited = result
+                apply_edits_to_pipeline()
+                st.success(f"Removed {n_dups} duplicate rows.")
+                st.rerun()
+
+        elif action == "Drop rows with missing values":
+            n_missing = int(active_df.isnull().any(axis=1).sum())
+            st.caption(f"{n_missing} rows contain at least one missing value.")
+            if st.button("Drop rows", key="apply_dropna"):
+                result = active_df.dropna().reset_index(drop=True)
+                st.session_state.df_edited = result
+                apply_edits_to_pipeline()
+                st.success(f"Removed {n_missing} rows with missing values.")
+                st.rerun()
+
+        elif action == "Fill missing — numeric (mean)":
+            cols_with_missing = [c for c in active_df.select_dtypes(include=[np.number]).columns
+                                 if active_df[c].isna().any()]
+            st.caption(f"Applies to: {cols_with_missing if cols_with_missing else 'no numeric columns have missing values'}")
+            if st.button("Fill with mean", key="apply_fill_mean"):
+                result = active_df.copy()
+                for c in result.select_dtypes(include=[np.number]).columns:
+                    result[c] = result[c].fillna(result[c].mean())
+                st.session_state.df_edited = result
+                apply_edits_to_pipeline()
+                st.success("Filled missing numeric values with each column's mean.")
+                st.rerun()
+
+        elif action == "Fill missing — numeric (median)":
+            if st.button("Fill with median", key="apply_fill_median"):
+                result = active_df.copy()
+                for c in result.select_dtypes(include=[np.number]).columns:
+                    result[c] = result[c].fillna(result[c].median())
+                st.session_state.df_edited = result
+                apply_edits_to_pipeline()
+                st.success("Filled missing numeric values with each column's median.")
+                st.rerun()
+
+        elif action == "Fill missing — numeric (zero)":
+            if st.button("Fill with zero", key="apply_fill_zero"):
+                result = active_df.copy()
+                for c in result.select_dtypes(include=[np.number]).columns:
+                    result[c] = result[c].fillna(0)
+                st.session_state.df_edited = result
+                apply_edits_to_pipeline()
+                st.success("Filled missing numeric values with 0.")
+                st.rerun()
+
+        elif action == "Fill missing — text (blank)":
+            if st.button("Fill with blank", key="apply_fill_blank"):
+                result = active_df.copy()
+                for c in result.select_dtypes(include=["object", "string"]).columns:
+                    result[c] = result[c].fillna("")
+                st.session_state.df_edited = result
+                apply_edits_to_pipeline()
+                st.success("Filled missing text values with blank.")
+                st.rerun()
+
+        elif action == "Rename a column":
+            rb1, rb2 = st.columns(2)
+            col_to_rename = rb1.selectbox("Column to rename", active_df.columns.tolist(), key="rename_col")
+            new_name = rb2.text_input("New name", value=col_to_rename, key="rename_val")
+            if st.button("Rename", key="apply_rename"):
+                new_name = new_name.strip()
+                if new_name and new_name != col_to_rename:
+                    result = active_df.rename(columns={col_to_rename: new_name})
+                    st.session_state.df_edited = result
+                    apply_edits_to_pipeline()
+                    st.success(f"Renamed '{col_to_rename}' to '{new_name}'.")
+                    st.rerun()
+                else:
+                    st.warning("Enter a different name.")
+
+        elif action == "Drop a column":
+            col_to_drop = st.selectbox("Column to drop", active_df.columns.tolist(), key="drop_col")
+            st.caption(f"This will permanently remove '{col_to_drop}' from the working data.")
+            if st.button("Drop column", key="apply_drop_col"):
+                result = active_df.drop(columns=[col_to_drop])
+                st.session_state.df_edited = result
+                apply_edits_to_pipeline()
+                st.success(f"Removed column '{col_to_drop}'.")
+                st.rerun()
+
+        elif action == "Change column type":
+            ct1, ct2 = st.columns(2)
+            col_to_cast = ct1.selectbox("Column", active_df.columns.tolist(), key="cast_col")
+            target_type = ct2.selectbox("Convert to", ["Numeric", "Text", "Date/Time"], key="cast_type")
+            st.caption(f"Current type: {active_df[col_to_cast].dtype}")
+            if st.button("Convert", key="apply_cast"):
+                result = active_df.copy()
+                try:
+                    if target_type == "Numeric":
+                        result[col_to_cast] = pd.to_numeric(result[col_to_cast], errors="coerce")
+                    elif target_type == "Text":
+                        result[col_to_cast] = result[col_to_cast].astype(str)
+                    elif target_type == "Date/Time":
+                        result[col_to_cast] = pd.to_datetime(result[col_to_cast], errors="coerce")
+                    st.session_state.df_edited = result
+                    apply_edits_to_pipeline()
+                    st.success(f"Converted '{col_to_cast}' to {target_type}.")
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"Conversion failed: {e}")
+
+        elif action == "Filter rows by value":
+            filter_col = st.selectbox("Filter by field", active_df.columns.tolist(), key="filter_col")
+            unique_vals = active_df[filter_col].dropna().unique().tolist()
+            if len(unique_vals) <= 100:
+                keep_vals = st.multiselect(
+                    "Keep rows where value is",
+                    options=unique_vals,
+                    default=unique_vals,
+                    key="filter_vals",
+                )
+                st.caption(f"Keeping {len(keep_vals)} of {len(unique_vals)} values.")
+                if st.button("Apply filter", key="apply_filter"):
+                    result = active_df[active_df[filter_col].isin(keep_vals)].reset_index(drop=True)
+                    st.session_state.df_edited = result
+                    apply_edits_to_pipeline()
+                    st.success(f"Filtered to {len(result):,} rows.")
+                    st.rerun()
+            else:
+                st.caption("Too many unique values for multi-select. Use AI Chat to filter with a custom condition.")
+
+        elif action == "Reset all edits":
+            st.caption("This will discard all changes and restore the original uploaded data.")
+            if st.button("Reset to original", key="apply_reset"):
+                st.session_state.df_edited = None
+                apply_edits_to_pipeline()
+                st.success("Data restored to original.")
+                st.rerun()
 
     # ── Schema ────────────────────────────────────────────────────────────────
     st.markdown("### Field Summary")
