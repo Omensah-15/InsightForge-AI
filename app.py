@@ -19,7 +19,7 @@ import requests
 
 warnings.filterwarnings("ignore")
 
-# ─── API key ──────────────────────────────────────────────────────────────────
+# ── API key ───────────────────────────────────────────────────────────────────
 def get_api_key() -> str:
     try:
         key = st.secrets.get("OPENROUTER_API_KEY", "")
@@ -29,7 +29,7 @@ def get_api_key() -> str:
         pass
     return os.environ.get("OPENROUTER_API_KEY", "")
 
-# ─── Page config ──────────────────────────────────────────────────────────────
+# ── Page config ───────────────────────────────────────────────────────────────
 st.set_page_config(
     page_title="InsightForge AI",
     page_icon="I",
@@ -37,57 +37,382 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
-# ─── CSS ──────────────────────────────────────────────────────────────────────
+# ── CSS ───────────────────────────────────────────────────────────────────────
 st.markdown("""
 <style>
-@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@300;400;600&display=swap');
-html, body, [class*="css"] { font-family: 'IBM Plex Sans', sans-serif; }
-h1, h2, h3 { font-family: 'IBM Plex Mono', monospace; letter-spacing: -0.03em; }
-.stTabs [data-baseweb="tab-list"] { gap: 0; border-bottom: 2px solid #e2e8f0; }
-.stTabs [data-baseweb="tab"] {
-    font-family: 'IBM Plex Mono', monospace; font-size: 0.78rem; font-weight: 600;
-    padding: 10px 20px; background: transparent; border: none;
-    color: #94a3b8; text-transform: uppercase; letter-spacing: 0.08em;
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+/* ── Global reset ── */
+html, body, [class*="css"] {
+    font-family: 'Space Grotesk', sans-serif;
+    background-color: #0d1117;
+    color: #e6edf3;
 }
-.stTabs [aria-selected="true"] { color: #0f172a !important; border-bottom: 2px solid #0f172a; }
+
+/* ── Sidebar ── */
+[data-testid="stSidebar"] {
+    background: #161b22 !important;
+    border-right: 1px solid #30363d;
+}
+[data-testid="stSidebar"] > div {
+    padding: 1.5rem 1.25rem;
+}
+
+/* ── Main area ── */
+.main .block-container {
+    padding: 2rem 2.5rem;
+    max-width: 1400px;
+}
+
+/* ── App header ── */
+.app-header {
+    margin-bottom: 1.5rem;
+    padding-bottom: 1.25rem;
+    border-bottom: 1px solid #21262d;
+}
+.app-title {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 1.9rem;
+    font-weight: 700;
+    color: #f0f6fc;
+    margin: 0 0 0.2rem 0;
+    letter-spacing: -0.02em;
+}
+.app-subtitle {
+    font-size: 0.9rem;
+    color: #8b949e;
+    margin: 0;
+    font-weight: 400;
+}
+
+/* ── Sidebar title ── */
+.sidebar-title {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: #f0f6fc;
+    letter-spacing: -0.01em;
+    margin-bottom: 0.25rem;
+}
+.sidebar-section {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.65rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: #6e7681;
+    margin: 1.25rem 0 0.5rem 0;
+}
+
+/* ── Metric cards ── */
+.metric-row {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 0.75rem;
+    margin-bottom: 1.5rem;
+}
 .metric-card {
-    background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 16px 20px;
+    background: #161b22;
+    border: 1px solid #21262d;
+    border-radius: 8px;
+    padding: 1rem 1.1rem;
+    transition: border-color 0.2s;
 }
-.metric-card .label {
-    font-family: 'IBM Plex Mono', monospace; font-size: 0.68rem; font-weight: 600;
-    color: #94a3b8; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 4px;
+.metric-card:hover { border-color: #388bfd; }
+.metric-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.65rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: #6e7681;
+    margin-bottom: 0.35rem;
 }
-.metric-card .value {
-    font-family: 'IBM Plex Mono', monospace; font-size: 1.6rem; font-weight: 600; color: #0f172a;
+.metric-value {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 1.65rem;
+    font-weight: 700;
+    color: #f0f6fc;
+    line-height: 1;
 }
+
+/* ── Section headers ── */
+.section-header {
+    font-size: 1.0rem;
+    font-weight: 600;
+    color: #f0f6fc;
+    margin: 1.5rem 0 0.5rem 0;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid #21262d;
+}
+
+/* ── Tabs ── */
+.stTabs [data-baseweb="tab-list"] {
+    gap: 0;
+    background: transparent;
+    border-bottom: 1px solid #21262d;
+}
+.stTabs [data-baseweb="tab"] {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.72rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    padding: 0.65rem 1.25rem;
+    background: transparent;
+    border: none;
+    color: #6e7681;
+    border-bottom: 2px solid transparent;
+    transition: color 0.2s;
+}
+.stTabs [aria-selected="true"] {
+    color: #58a6ff !important;
+    border-bottom: 2px solid #58a6ff !important;
+    background: transparent !important;
+}
+.stTabs [data-baseweb="tab"]:hover { color: #c9d1d9; }
+.stTabs [data-baseweb="tab-panel"] { padding-top: 1.25rem; }
+
+/* ── Buttons ── */
+.stButton > button {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.72rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    border-radius: 6px;
+    border: 1px solid #388bfd;
+    background: #388bfd;
+    color: #ffffff;
+    padding: 0.5rem 1.1rem;
+    transition: all 0.2s;
+    width: 100%;
+}
+.stButton > button:hover {
+    background: #2f7ae5;
+    border-color: #2f7ae5;
+    color: #ffffff;
+}
+
+/* Primary action button variant */
+.run-btn .stButton > button {
+    background: #238636;
+    border-color: #2ea043;
+    font-size: 0.8rem;
+    padding: 0.65rem 1.25rem;
+}
+.run-btn .stButton > button:hover { background: #2ea043; }
+
+/* Secondary buttons */
+.sec-btn .stButton > button {
+    background: transparent;
+    border-color: #30363d;
+    color: #8b949e;
+}
+.sec-btn .stButton > button:hover {
+    background: #21262d;
+    border-color: #8b949e;
+    color: #c9d1d9;
+}
+
+/* ── Form labels ── */
+.stSelectbox label, .stSlider label, .stMultiSelect label,
+.stCheckbox label, .stTextInput label, .stFileUploader label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.68rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: #6e7681 !important;
+}
+
+/* ── Select, input boxes ── */
+.stSelectbox > div > div,
+.stMultiSelect > div > div,
+.stTextInput > div > div {
+    background: #0d1117 !important;
+    border: 1px solid #30363d !important;
+    border-radius: 6px !important;
+    color: #e6edf3 !important;
+}
+.stSelectbox > div > div:hover,
+.stMultiSelect > div > div:hover {
+    border-color: #388bfd !important;
+}
+
+/* ── Slider ── */
+.stSlider > div > div > div > div {
+    background: #388bfd;
+}
+
+/* ── Info / success / error boxes ── */
+.stAlert {
+    border-radius: 6px;
+    border-left: 3px solid;
+}
+
+/* ── Chat bubbles ── */
 .chat-user {
-    background: #0f172a; color: #f8fafc; padding: 12px 16px;
-    border-radius: 6px 6px 0 6px; margin: 8px 0 8px auto;
-    font-size: 0.9rem; max-width: 80%;
+    background: #1f6feb;
+    color: #ffffff;
+    padding: 0.75rem 1rem;
+    border-radius: 12px 12px 2px 12px;
+    margin: 0.6rem 0 0.6rem 15%;
+    font-size: 0.9rem;
+    line-height: 1.5;
+    box-shadow: 0 2px 8px rgba(31,111,235,0.3);
 }
 .chat-ai {
-    background: #f1f5f9; color: #0f172a; padding: 12px 16px;
-    border-radius: 6px 6px 6px 0; margin: 8px 0; font-size: 0.9rem;
-    max-width: 85%; border-left: 3px solid #0f172a; line-height: 1.6;
+    background: #161b22;
+    color: #e6edf3;
+    padding: 0.75rem 1rem;
+    border-radius: 12px 12px 12px 2px;
+    margin: 0.6rem 15% 0.6rem 0;
+    font-size: 0.9rem;
+    line-height: 1.6;
+    border: 1px solid #21262d;
+    border-left: 3px solid #388bfd;
 }
+
+/* ── Insight boxes ── */
 .insight-box {
-    background: #fafafa; border: 1px solid #e2e8f0; border-left: 4px solid #0f172a;
-    padding: 12px 16px; border-radius: 0 6px 6px 0; margin: 6px 0; font-size: 0.88rem;
+    background: #161b22;
+    border: 1px solid #21262d;
+    border-left: 3px solid #388bfd;
+    padding: 0.75rem 1rem;
+    border-radius: 0 6px 6px 0;
+    margin: 0.5rem 0;
+    font-size: 0.875rem;
+    color: #c9d1d9;
+    line-height: 1.5;
 }
-.stButton > button {
-    font-family: 'IBM Plex Mono', monospace; font-size: 0.78rem; font-weight: 600;
-    text-transform: uppercase; letter-spacing: 0.08em; border-radius: 4px;
-    border: 2px solid #0f172a; background: #0f172a; color: white; padding: 8px 20px;
+.insight-box.positive { border-left-color: #3fb950; }
+.insight-box.warning  { border-left-color: #d29922; }
+
+/* ── Group profile cards ── */
+.group-card {
+    background: #161b22;
+    border: 1px solid #21262d;
+    border-radius: 8px;
+    padding: 1rem 1.25rem;
+    margin: 0.6rem 0;
+    transition: border-color 0.2s;
 }
-.stButton > button:hover { background: white; color: #0f172a; }
-.stSelectbox label, .stSlider label, .stMultiSelect label, .stCheckbox label {
-    font-family: 'IBM Plex Mono', monospace; font-size: 0.72rem; font-weight: 600;
-    text-transform: uppercase; letter-spacing: 0.08em; color: #64748b;
+.group-card:hover { border-color: #388bfd; }
+.group-card-header {
+    font-weight: 600;
+    font-size: 0.95rem;
+    color: #f0f6fc;
+    margin-bottom: 0.35rem;
+}
+.group-card-sub {
+    font-size: 0.82rem;
+    color: #8b949e;
+}
+
+/* ── Result stat boxes ── */
+.result-stat {
+    background: #161b22;
+    border: 1px solid #21262d;
+    border-radius: 8px;
+    padding: 0.9rem 1rem;
+    text-align: center;
+}
+.result-stat-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.62rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: #6e7681;
+    margin-bottom: 0.3rem;
+}
+.result-stat-value {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 1.2rem;
+    font-weight: 700;
+    color: #58a6ff;
+}
+
+/* ── Dividers ── */
+hr { border-color: #21262d !important; margin: 1rem 0; }
+
+/* ── Dataframe ── */
+.stDataFrame {
+    border: 1px solid #21262d;
+    border-radius: 6px;
+    overflow: hidden;
+}
+
+/* ── Caption ── */
+.stCaption { color: #6e7681 !important; font-size: 0.8rem !important; }
+
+/* ── Expander ── */
+.streamlit-expanderHeader {
+    background: #161b22 !important;
+    border: 1px solid #21262d !important;
+    border-radius: 6px !important;
+    color: #c9d1d9 !important;
+    font-size: 0.85rem !important;
+}
+.streamlit-expanderContent {
+    background: #0d1117 !important;
+    border: 1px solid #21262d !important;
+    border-top: none !important;
+    border-radius: 0 0 6px 6px !important;
+}
+
+/* ── Scrollbar ── */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: #0d1117; }
+::-webkit-scrollbar-thumb { background: #30363d; border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: #6e7681; }
+
+/* ── Upload area ── */
+[data-testid="stFileUploader"] {
+    background: #161b22;
+    border: 1px dashed #30363d;
+    border-radius: 8px;
+    padding: 0.5rem;
+}
+[data-testid="stFileUploader"]:hover { border-color: #388bfd; }
+
+/* ── Spinner ── */
+.stSpinner > div { border-top-color: #388bfd !important; }
+
+/* ── Download button ── */
+.stDownloadButton > button {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.72rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    background: transparent;
+    border: 1px solid #30363d;
+    color: #8b949e;
+    border-radius: 6px;
+    padding: 0.45rem 1rem;
+    transition: all 0.2s;
+}
+.stDownloadButton > button:hover {
+    border-color: #388bfd;
+    color: #58a6ff;
+    background: rgba(56,139,253,0.1);
+}
+
+/* ── Chat input ── */
+.stChatInput > div {
+    background: #161b22 !important;
+    border: 1px solid #30363d !important;
+    border-radius: 8px !important;
+}
+.stChatInput input {
+    color: #e6edf3 !important;
+    font-family: 'Space Grotesk', sans-serif !important;
 }
 </style>
 """, unsafe_allow_html=True)
 
-# ─── Session state ─────────────────────────────────────────────────────────────
+# ── Session state ─────────────────────────────────────────────────────────────
 DEFAULTS = {
     "chat_history": [],
     "df": None,
@@ -123,7 +448,6 @@ def reset_clustering():
 
 
 def apply_edits_to_pipeline():
-    """Recompute column types and auto-visuals after data edits."""
     active_df = st.session_state.df_edited if st.session_state.df_edited is not None else st.session_state.df
     if active_df is None:
         return
@@ -136,7 +460,7 @@ def apply_edits_to_pipeline():
     reset_clustering()
 
 
-# ─── AI models ────────────────────────────────────────────────────────────────
+# ── AI models ─────────────────────────────────────────────────────────────────
 FREE_MODELS = [
     "meta-llama/llama-3.3-70b-instruct:free",
     "google/gemma-3-27b-it:free",
@@ -151,27 +475,23 @@ FREE_MODELS = [
 
 
 def call_ai(messages: list, system_prompt: str = "") -> tuple:
-    """Returns (text, is_error). Tries all free models, skips 429s."""
     api_key = get_api_key()
     if not api_key:
         return (
             "AI is not configured. Add your OpenRouter API key in "
-            "Streamlit Cloud → Manage app → Settings → Secrets.",
+            "Streamlit Cloud > Manage app > Settings > Secrets.",
             True,
         )
-
     full_messages = []
     if system_prompt:
         full_messages.append({"role": "system", "content": system_prompt})
     full_messages.extend(messages)
-
     headers = {
         "Authorization": f"Bearer {api_key}",
         "Content-Type": "application/json",
         "HTTP-Referer": "https://insightforge.app",
         "X-Title": "InsightForge AI",
     }
-
     rate_limited = 0
     for model in FREE_MODELS:
         try:
@@ -195,22 +515,18 @@ def call_ai(messages: list, system_prompt: str = "") -> tuple:
             continue
         except Exception:
             continue
-
     if rate_limited >= len(FREE_MODELS):
         return "All AI models are busy right now. Please wait a moment and try again.", True
     return "Could not get a response. Please try rephrasing your question.", True
 
 
-# ─── Data loading ─────────────────────────────────────────────────────────────
+# ── Data loading ──────────────────────────────────────────────────────────────
 @st.cache_data(show_spinner=False)
 def load_csv(file_bytes: bytes) -> pd.DataFrame:
     df = pd.read_csv(io.BytesIO(file_bytes))
-    # Strip column name whitespace
     df.columns = [c.strip() for c in df.columns]
-    # Strip string values
-    for col in df.select_dtypes(include=["object","string"]).columns:
+    for col in df.select_dtypes(include=["object", "string"]).columns:
         df[col] = df[col].astype(str).str.strip()
-    # Parse date columns
     for col in df.columns:
         if df[col].dtype == object and any(
             kw in col.lower() for kw in ["date", "time", "datetime", "timestamp"]
@@ -232,13 +548,11 @@ def detect_column_types(df: pd.DataFrame):
         c for c in df.select_dtypes(include=["object"]).columns
         if df[c].nunique() > 50 or (df[c].str.len().mean() > 20)
     ]
-    # Remove overlap
     text = [c for c in text if c not in categorical]
     return numerical, categorical, text
 
 
 def get_dataset_context(df: pd.DataFrame, cluster_col: str = None) -> str:
-    """Build rich context string for the AI."""
     cols_info = []
     for c in df.columns:
         dtype = str(df[c].dtype)
@@ -252,7 +566,6 @@ def get_dataset_context(df: pd.DataFrame, cluster_col: str = None) -> str:
             )
         else:
             cols_info.append(f"  - '{c}' ({dtype}, {n_unique} unique)")
-
     sample_rows = df.head(3).to_string(index=False)
     ctx = (
         f"Dataset: {df.shape[0]} rows, {df.shape[1]} columns\n"
@@ -265,52 +578,61 @@ def get_dataset_context(df: pd.DataFrame, cluster_col: str = None) -> str:
     return ctx
 
 
-# ─── Auto visuals engine ──────────────────────────────────────────────────────
+# ── Auto visuals ──────────────────────────────────────────────────────────────
+PALETTE = ["#388bfd", "#3fb950", "#d29922", "#bc8cff", "#f78166", "#39c5cf", "#ffa657", "#ff7b72"]
+
+def chart_layout(height=380):
+    return dict(
+        plot_bgcolor="#161b22",
+        paper_bgcolor="#0d1117",
+        font_family="JetBrains Mono",
+        font_color="#c9d1d9",
+        height=height,
+        margin=dict(l=16, r=16, t=40, b=16),
+    )
+
+
+def apply_base(fig, height=380):
+    fig.update_layout(**chart_layout(height))
+    fig.update_xaxes(gridcolor="#21262d", zerolinecolor="#30363d",
+                     linecolor="#30363d", tickcolor="#6e7681")
+    fig.update_yaxes(gridcolor="#21262d", zerolinecolor="#30363d",
+                     linecolor="#30363d", tickcolor="#6e7681")
+    return fig
+
+
 def generate_auto_visuals(df: pd.DataFrame, numerical_cols: list,
                           categorical_cols: list) -> list:
-    """
-    Automatically generate meaningful charts based on what columns exist.
-    Returns a list of plotly figures with titles.
-    """
     visuals = []
-    PALETTE = px.colors.qualitative.Bold
-    layout = dict(plot_bgcolor="white", paper_bgcolor="white",
-                  font_family="IBM Plex Mono", height=380)
 
-    # 1. Categorical distribution — pick most interesting cat col
     for col in categorical_cols[:2]:
         counts = df[col].value_counts().reset_index()
         counts.columns = [col, "Count"]
         fig = px.bar(counts.head(15), x=col, y="Count", color=col,
                      color_discrete_sequence=PALETTE,
                      title=f"Distribution of {col}")
-        fig.update_layout(**layout, showlegend=False)
-        fig.update_xaxes(gridcolor="#f1f5f9")
-        fig.update_yaxes(gridcolor="#f1f5f9")
+        fig.update_layout(**chart_layout(), showlegend=False)
+        fig.update_xaxes(gridcolor="#21262d")
+        fig.update_yaxes(gridcolor="#21262d")
         visuals.append((f"Distribution of {col}", fig))
 
-    # 2. Numerical distributions
     for col in numerical_cols[:3]:
         fig = px.histogram(df, x=col, nbins=30, title=f"Distribution of {col}",
-                           color_discrete_sequence=[PALETTE[2]])
-        fig.update_layout(**layout)
-        fig.update_xaxes(gridcolor="#f1f5f9")
-        fig.update_yaxes(gridcolor="#f1f5f9")
+                           color_discrete_sequence=[PALETTE[0]])
+        fig.update_layout(**chart_layout())
+        fig.update_xaxes(gridcolor="#21262d")
+        fig.update_yaxes(gridcolor="#21262d")
         visuals.append((f"Distribution of {col}", fig))
 
-    # 3. Categorical vs numerical — e.g. Sentiment vs Confidence Score
     if categorical_cols and numerical_cols:
         cat_col = categorical_cols[0]
         num_col = numerical_cols[0]
         fig = px.box(df, x=cat_col, y=num_col, color=cat_col,
                      color_discrete_sequence=PALETTE,
                      title=f"{num_col} by {cat_col}")
-        fig.update_layout(**layout, showlegend=False)
-        fig.update_xaxes(gridcolor="#f1f5f9")
-        fig.update_yaxes(gridcolor="#f1f5f9")
+        fig.update_layout(**chart_layout(), showlegend=False)
         visuals.append((f"{num_col} by {cat_col}", fig))
 
-    # 4. Second categorical vs numerical
     if len(categorical_cols) > 1 and numerical_cols:
         cat_col = categorical_cols[1]
         num_col = numerical_cols[0]
@@ -318,36 +640,30 @@ def generate_auto_visuals(df: pd.DataFrame, numerical_cols: list,
         fig = px.bar(counts, x=cat_col, y=num_col, color=cat_col,
                      color_discrete_sequence=PALETTE,
                      title=f"Average {num_col} by {cat_col}")
-        fig.update_layout(**layout, showlegend=False)
-        fig.update_xaxes(gridcolor="#f1f5f9")
-        fig.update_yaxes(gridcolor="#f1f5f9")
+        fig.update_layout(**chart_layout(), showlegend=False)
         visuals.append((f"Average {num_col} by {cat_col}", fig))
 
-    # 5. Scatter of two numericals
     if len(numerical_cols) >= 2:
         fig = px.scatter(df, x=numerical_cols[0], y=numerical_cols[1],
                          color=categorical_cols[0] if categorical_cols else None,
                          color_discrete_sequence=PALETTE,
                          title=f"{numerical_cols[0]} vs {numerical_cols[1]}")
         fig.update_traces(marker=dict(size=6, opacity=0.7))
-        fig.update_layout(**layout)
-        fig.update_xaxes(gridcolor="#f1f5f9", zerolinecolor="#e2e8f0")
-        fig.update_yaxes(gridcolor="#f1f5f9", zerolinecolor="#e2e8f0")
+        fig.update_layout(**chart_layout())
         visuals.append((f"{numerical_cols[0]} vs {numerical_cols[1]}", fig))
 
-    # 6. Correlation heatmap if enough numericals
     if len(numerical_cols) >= 3:
         corr = df[numerical_cols].corr()
         fig = px.imshow(corr, text_auto=".2f", aspect="auto",
-                        color_continuous_scale="RdBu_r",
+                        color_continuous_scale="Blues",
                         title="Feature Correlation Heatmap")
-        fig.update_layout(**layout)
+        fig.update_layout(**chart_layout())
         visuals.append(("Correlation Heatmap", fig))
 
     return visuals
 
 
-# ─── Preprocessing & clustering ───────────────────────────────────────────────
+# ── Preprocessing & clustering ────────────────────────────────────────────────
 @st.cache_data(show_spinner=False)
 def preprocess(df_json: str, numerical_cols: tuple, categorical_cols: tuple):
     df = pd.read_json(io.StringIO(df_json))
@@ -415,173 +731,84 @@ def compute_pca(scaled_json: str):
     return coords.tolist(), pca.explained_variance_ratio_.tolist()
 
 
-# ─── Visualization helpers ────────────────────────────────────────────────────
-PALETTE = px.colors.qualitative.Bold
-BASE_LAYOUT = dict(plot_bgcolor="white", paper_bgcolor="white", font_family="IBM Plex Mono")
-
-
-def apply_base(fig, height=380):
-    fig.update_layout(**BASE_LAYOUT, height=height)
-    fig.update_xaxes(gridcolor="#f1f5f9", zerolinecolor="#e2e8f0")
-    fig.update_yaxes(gridcolor="#f1f5f9", zerolinecolor="#e2e8f0")
-    return fig
-
-
 def plot_elbow(ks, inertias, scores):
     fig = make_subplots(specs=[[{"secondary_y": True}]])
     fig.add_trace(go.Scatter(x=ks, y=inertias, mode="lines+markers", name="Inertia",
-                             line=dict(color="#0f172a", width=2), marker=dict(size=7)),
+                             line=dict(color="#388bfd", width=2), marker=dict(size=7)),
                   secondary_y=False)
     fig.add_trace(go.Scatter(x=ks, y=scores, mode="lines+markers", name="Silhouette",
-                             line=dict(color="#ef4444", width=2, dash="dot"),
-                             marker=dict(size=7, color="#ef4444")),
+                             line=dict(color="#3fb950", width=2, dash="dot"),
+                             marker=dict(size=7, color="#3fb950")),
                   secondary_y=True)
     fig.update_layout(title="Elbow Curve + Silhouette Score", xaxis_title="k",
                       yaxis_title="Inertia", yaxis2_title="Silhouette Score",
-                      legend=dict(x=0.7, y=0.95), **BASE_LAYOUT, height=380)
+                      legend=dict(x=0.7, y=0.95, bgcolor="rgba(0,0,0,0)"),
+                      **chart_layout(380))
+    fig.update_xaxes(gridcolor="#21262d")
+    fig.update_yaxes(gridcolor="#21262d")
     return fig
 
 
-def plot_pca_clusters(coords, labels):
-    arr = np.array(coords)
-    df_plot = pd.DataFrame({"PC1": arr[:, 0], "PC2": arr[:, 1],
-                             "Cluster": [str(l) for l in labels]})
-    fig = px.scatter(df_plot, x="PC1", y="PC2", color="Cluster",
-                     color_discrete_sequence=PALETTE, title="PCA Cluster Projection")
-    fig.update_traces(marker=dict(size=6, opacity=0.8))
-    return apply_base(fig, 420)
-
-
-def plot_cluster_sizes(labels):
-    counts = pd.Series(labels).value_counts().sort_index().reset_index()
-    counts.columns = ["Cluster", "Count"]
-    counts["Cluster"] = counts["Cluster"].astype(str)
-    fig = px.bar(counts, x="Cluster", y="Count", color="Cluster",
-                 color_discrete_sequence=PALETTE, title="Cluster Size Distribution")
-    fig.update_layout(showlegend=False)
-    return apply_base(fig, 320)
-
-
-def plot_correlation(df, cols):
-    corr = df[cols].corr()
-    fig = px.imshow(corr, text_auto=".2f", aspect="auto",
-                    color_continuous_scale="RdBu_r", title="Feature Correlation Heatmap")
-    return apply_base(fig, 420)
-
-
-def plot_feature_distributions(df, cols, cluster_col):
-    valid = [c for c in cols if c in df.columns][:6]
-    if not valid:
-        return None
-    n = len(valid)
-    ncols = min(3, n)
-    nrows = (n + ncols - 1) // ncols
-    fig = make_subplots(rows=nrows, cols=ncols, subplot_titles=valid)
-    for i, col in enumerate(valid):
-        row, c = i // ncols + 1, i % ncols + 1
-        for cluster in sorted(df[cluster_col].unique()):
-            subset = df[df[cluster_col] == cluster][col].dropna()
-            fig.add_trace(go.Histogram(x=subset, name=f"Cluster {cluster}", opacity=0.6,
-                                       marker_color=PALETTE[int(cluster) % len(PALETTE)],
-                                       showlegend=(i == 0)),
-                          row=row, col=c)
-    fig.update_layout(barmode="overlay", title="Feature Distributions by Cluster",
-                      **BASE_LAYOUT, height=300 * nrows)
-    return fig
-
-
-def generate_rule_based_insights(df, cluster_col, cols):
-    valid = [c for c in cols if c in df.columns]
-    if not valid:
-        return []
-    overall_means = df[valid].mean()
-    insights = []
-    for cluster in sorted(df[cluster_col].unique()):
-        subset = df[df[cluster_col] == cluster]
-        size = len(subset)
-        pct = round(100 * size / len(df), 1)
-        parts = [f"Cluster {cluster} ({size} records, {pct}%)"]
-        for col in valid[:5]:
-            cm, om = subset[col].mean(), overall_means[col]
-            if om == 0:
-                continue
-            diff = (cm - om) / abs(om) * 100
-            if abs(diff) > 15:
-                direction = "above" if diff > 0 else "below"
-                parts.append(f"{col} is {abs(diff):.0f}% {direction} average ({cm:.2f} vs {om:.2f})")
-        insights.append(" | ".join(parts))
-    return insights
-
-
-# ─── Code sandbox ─────────────────────────────────────────────────────────────
+# ── Code sandbox ──────────────────────────────────────────────────────────────
 BLOCKED = ["os.", "sys.", "subprocess", "open(", "__import__",
            "importlib", "shutil", "socket", "requests", "eval(", "exec("]
 
 
 def clean_ai_code(code: str) -> str:
-    """Strip markdown fences and leading/trailing whitespace."""
     code = re.sub(r"```(?:python)?", "", code)
     code = code.replace("```", "").strip()
     return code
 
 
 def execute_ai_code(code: str, df: pd.DataFrame) -> tuple:
-    """Execute AI-generated code safely. Returns (fig, error_message)."""
     code = clean_ai_code(code)
     if not code:
         return None, "No executable code was returned."
-
     for token in BLOCKED:
         if token in code:
-            return None, f"Code was blocked for safety reasons."
-
-    # Always use clean column names
+            return None, "Code was blocked for safety reasons."
     df_exec = df.copy()
     df_exec.columns = [c.strip() for c in df_exec.columns]
-
     local_ns = {
         "df": df_exec, "pd": pd, "np": np,
         "px": px, "go": go, "make_subplots": make_subplots,
     }
-
     try:
         exec(compile(code, "<ai_code>", "exec"), {"__builtins__": {}}, local_ns)
     except ValueError as e:
         err = str(e)
         if "not the name of a column" in err or "Expected one of" in err:
             cols = df_exec.columns.tolist()
-            return None, (
-                f"The chart could not be generated because a column name did not match. "
-                f"Your columns are: {cols}. Please try asking again."
-            )
+            return None, f"Column name mismatch. Your columns are: {cols}."
         return None, f"Chart error: {err}"
     except KeyError as e:
         cols = df_exec.columns.tolist()
         return None, f"Column {e} not found. Your columns are: {cols}."
     except Exception as e:
         return None, f"Chart could not be generated: {str(e)}"
-
     fig = local_ns.get("fig", None)
     if fig is None:
         return None, "The AI did not produce a chart. Try rephrasing your request."
+    # Apply dark theme to AI-generated charts
+    apply_base(fig)
     return fig, None
 
 
-# ─── Sidebar ──────────────────────────────────────────────────────────────────
+# ── Sidebar ───────────────────────────────────────────────────────────────────
 with st.sidebar:
-    st.markdown("## InsightForge AI")
+    st.markdown('<div class="sidebar-title">InsightForge AI</div>', unsafe_allow_html=True)
     st.markdown("---")
 
-    uploaded = st.file_uploader("Upload CSV", type=["csv"])
+    st.markdown('<div class="sidebar-section">Data Source</div>', unsafe_allow_html=True)
+    uploaded = st.file_uploader("Upload CSV file", type=["csv"], label_visibility="collapsed")
 
     if uploaded is not None:
         file_bytes = uploaded.read()
         new_hash = hash(file_bytes)
-
         if st.session_state._file_hash != new_hash:
             reset_all()
             st.session_state._file_hash = new_hash
-            with st.spinner("Loading..."):
+            with st.spinner("Loading data..."):
                 df_raw = load_csv(file_bytes)
             num_cols, cat_cols, txt_cols = detect_column_types(df_raw)
             st.session_state.df = df_raw
@@ -589,10 +816,8 @@ with st.sidebar:
             st.session_state.categorical_cols = cat_cols
             st.session_state.text_cols = txt_cols
             st.session_state.selected_num = num_cols[:8]
-            # Generate auto visuals immediately on load
             st.session_state.auto_visuals = generate_auto_visuals(df_raw, num_cols, cat_cols)
 
-        # Recovery: re-detect if lost
         if st.session_state.df is not None and not st.session_state.numerical_cols and not st.session_state.categorical_cols:
             num_cols, cat_cols, txt_cols = detect_column_types(st.session_state.df)
             st.session_state.numerical_cols = num_cols
@@ -604,24 +829,29 @@ with st.sidebar:
                     st.session_state.df, num_cols, cat_cols)
 
     if st.session_state.df is not None:
+        st.markdown('<div class="sidebar-section">Data Actions</div>', unsafe_allow_html=True)
         ca, cb = st.columns(2)
-        if ca.button("Clear Data", use_container_width=True):
-            reset_all()
-            st.rerun()
-        if cb.button("Reset Segments", use_container_width=True):
-            reset_clustering()
-            st.rerun()
+        with ca:
+            st.markdown('<div class="sec-btn">', unsafe_allow_html=True)
+            if st.button("Clear Data", use_container_width=True):
+                reset_all()
+                st.rerun()
+            st.markdown('</div>', unsafe_allow_html=True)
+        with cb:
+            st.markdown('<div class="sec-btn">', unsafe_allow_html=True)
+            if st.button("Reset Segments", use_container_width=True):
+                reset_clustering()
+                st.rerun()
+            st.markdown('</div>', unsafe_allow_html=True)
 
-    st.markdown("---")
-    st.markdown("**Segmentation Settings**")
+    st.markdown('<div class="sidebar-section">Segmentation Settings</div>', unsafe_allow_html=True)
     model_choice = st.selectbox(
-        "Grouping method",
+        "Grouping Method",
         ["Auto (recommended)", "Density-based"],
-        label_visibility="collapsed",
         help="Auto groups records by similarity. Density-based finds natural clusters of any shape.",
     )
 
-    k_val, eps_val, min_s = None, 0.5, 5
+    k_val, eps_val, min_s, auto_k = None, 0.5, 5, True
     if model_choice == "Auto (recommended)":
         auto_k = st.checkbox("Find number of groups automatically", value=True)
         if not auto_k:
@@ -631,34 +861,36 @@ with st.sidebar:
                             help="How close records need to be to form a group.")
         min_s = st.slider("Minimum group size", 2, 20, 5)
 
-    st.markdown("---")
-    st.markdown("**Fields to Analyse**")
-    st.caption("Select the numerical fields to base segmentation on.")
+    st.markdown('<div class="sidebar-section">Fields to Analyse</div>', unsafe_allow_html=True)
     num_options = st.session_state.numerical_cols
+    selected_num = []
     if num_options:
         valid_defaults = [c for c in st.session_state.selected_num if c in num_options]
         if not valid_defaults:
             valid_defaults = num_options[:8]
         selected_num = st.multiselect(
-            "Fields",
+            "Numerical Fields",
             options=num_options,
             default=valid_defaults,
             label_visibility="collapsed",
         )
         st.session_state.selected_num = selected_num
-    else:
-        selected_num = []
-        if st.session_state.df is not None:
-            st.caption("No numerical fields detected. Segmentation requires numerical data.")
+    elif st.session_state.df is not None:
+        st.caption("No numerical fields detected.")
 
     st.markdown("")
+    st.markdown('<div class="run-btn">', unsafe_allow_html=True)
     run_btn = st.button("Run Segmentation", use_container_width=True)
+    st.markdown('</div>', unsafe_allow_html=True)
 
 
-# ─── Main ─────────────────────────────────────────────────────────────────────
-st.markdown("# InsightForge AI")
-st.markdown("Customer segmentation and data analysis")
-st.markdown("---")
+# ── Main area ─────────────────────────────────────────────────────────────────
+st.markdown("""
+<div class="app-header">
+  <div class="app-title">InsightForge AI</div>
+  <div class="app-subtitle">Customer segmentation and data analysis</div>
+</div>
+""", unsafe_allow_html=True)
 
 if st.session_state.df is None:
     st.info("Upload a CSV file from the sidebar to get started.")
@@ -668,7 +900,7 @@ df = st.session_state.df_edited if st.session_state.df_edited is not None else s
 numerical_cols = st.session_state.numerical_cols
 categorical_cols = st.session_state.categorical_cols
 
-# ─── Run segmentation ─────────────────────────────────────────────────────────
+# ── Run segmentation ──────────────────────────────────────────────────────────
 if run_btn:
     if not selected_num:
         st.sidebar.error("Select at least one numerical feature.")
@@ -678,7 +910,6 @@ if run_btn:
             scaled_df, feature_cols = preprocess(
                 df_json, tuple(selected_num), tuple(categorical_cols)
             )
-
         if scaled_df.empty:
             st.error("Could not build a feature matrix. Make sure you have valid numerical columns.")
         else:
@@ -704,62 +935,56 @@ if run_btn:
             st.session_state.df_clustered = df_clustered
             st.session_state.clustering_done = True
             n_found = len(set(labels)) - (1 if -1 in labels else 0)
-            st.success(f"Segmentation complete — {n_found} clusters found.")
+            st.success(f"Segmentation complete — {n_found} groups found.")
 
 
-# ─── Tabs ─────────────────────────────────────────────────────────────────────
-tab1, tab2, tab3, tab4 = st.tabs(["Overview", "Clustering", "Visualizations", "AI Chat"])
+# ── Tabs ──────────────────────────────────────────────────────────────────────
+tab1, tab2, tab3, tab4 = st.tabs(["Overview", "Segmentation", "Visualizations", "AI Chat"])
 
 
-# ═══ TAB 1: Overview ══════════════════════════════════════════════════════════
+# ════════════════ TAB 1: Overview ═══════════════════════════════════════════
 with tab1:
-    # ── Summary metrics ───────────────────────────────────────────────────────
+    # Metric cards
     c1, c2, c3, c4 = st.columns(4)
     for col, (label, value) in zip([c1, c2, c3, c4], [
-        ("Records", f"{df.shape[0]:,}"),
+        ("Total Records", f"{df.shape[0]:,}"),
         ("Fields", str(df.shape[1])),
         ("Numerical", str(len(numerical_cols))),
         ("Categorical", str(len(categorical_cols))),
     ]):
         col.markdown(
-            f'<div class="metric-card"><div class="label">{label}</div>'
-            f'<div class="value">{value}</div></div>',
+            f'<div class="metric-card">'
+            f'<div class="metric-label">{label}</div>'
+            f'<div class="metric-value">{value}</div>'
+            f'</div>',
             unsafe_allow_html=True,
         )
 
     st.markdown("")
-
-    # ── Data Preview ──────────────────────────────────────────────────────────
     is_edited = st.session_state.df_edited is not None
-
-    preview_label = "Data Preview"
+    preview_label = "Data Preview" + ("  —  edited" if is_edited else "")
+    st.markdown(f'<div class="section-header">{preview_label}</div>', unsafe_allow_html=True)
     if is_edited:
-        preview_label += "  —  edited"
-    st.markdown(f"### {preview_label}")
+        st.caption("Working on an edited version of the original file.")
 
-    if is_edited:
-        st.caption("You are working on an edited version of the original file.")
-
-    st.dataframe(df.head(200), use_container_width=True, height=340)
+    st.dataframe(df.head(200), use_container_width=True, height=320)
 
     if is_edited:
         st.download_button(
-            "Download edited data",
+            "Download Edited Data",
             df.to_csv(index=False).encode(),
             "edited_data.csv",
             "text/csv",
         )
 
-    # ── Data Editor ───────────────────────────────────────────────────────────
+    # Data actions expander
     with st.expander("Data Actions", expanded=False):
-        st.caption("Clean, reshape, or filter your data. Every change applies across all tabs and resets segmentation.")
-
+        st.caption("Clean, reshape, or filter your data. Changes apply across all tabs and reset segmentation.")
         active_df = (
             st.session_state.df_edited
             if st.session_state.df_edited is not None
             else st.session_state.df
         )
-
         ea1, ea2 = st.columns([2, 1])
         action = ea1.selectbox(
             "Action",
@@ -920,8 +1145,8 @@ with tab1:
                 st.success("Data restored to original.")
                 st.rerun()
 
-    # ── Schema ────────────────────────────────────────────────────────────────
-    st.markdown("### Field Summary")
+    # Field summary
+    st.markdown('<div class="section-header">Field Summary</div>', unsafe_allow_html=True)
     schema_rows = []
     for c in df.columns:
         n_null = int(df[c].isna().sum())
@@ -931,17 +1156,16 @@ with tab1:
             "Non-null": int(df[c].notna().sum()),
             "Missing": n_null,
             "Missing %": f"{df[c].isna().mean()*100:.1f}%",
-            "Unique values": int(df[c].nunique()),
+            "Unique Values": int(df[c].nunique()),
         })
     st.dataframe(pd.DataFrame(schema_rows), use_container_width=True)
 
-    # ── Stats ─────────────────────────────────────────────────────────────────
     if numerical_cols:
-        st.markdown("### Summary Statistics")
+        st.markdown('<div class="section-header">Summary Statistics</div>', unsafe_allow_html=True)
         st.dataframe(df[numerical_cols].describe().round(3), use_container_width=True)
 
 
-# ═══ TAB 2: Clustering ════════════════════════════════════════════════════════
+# ════════════════ TAB 2: Segmentation ═══════════════════════════════════════
 with tab2:
     if not st.session_state.clustering_done:
         if not numerical_cols:
@@ -951,7 +1175,7 @@ with tab2:
                 "Try the Visualizations tab to explore your data."
             )
         else:
-            st.markdown("### Customer Segmentation")
+            st.markdown('<div class="section-header">Customer Segmentation</div>', unsafe_allow_html=True)
             st.markdown(
                 "Segmentation groups your records into distinct profiles based on "
                 "patterns in the data. Each group shares similar characteristics — "
@@ -965,9 +1189,7 @@ with tab2:
 
         n_groups = len(set(labels)) - (1 if -1 in labels else 0)
         sil_final = silhouette_score(scaled_df, labels) if n_groups > 1 else 0.0
-        separation_pct = round(sil_final * 100)
 
-        # Plain-language separation description
         if sil_final >= 0.7:
             separation_label = "Very well separated"
         elif sil_final >= 0.5:
@@ -977,8 +1199,9 @@ with tab2:
         else:
             separation_label = "Overlapping groups"
 
-        st.markdown("### Segmentation Results")
+        st.markdown('<div class="section-header">Segmentation Results</div>', unsafe_allow_html=True)
 
+        # Result stats
         c1, c2, c3, c4 = st.columns(4)
         for col, (label, value) in zip([c1, c2, c3, c4], [
             ("Groups Found", str(n_groups)),
@@ -987,51 +1210,47 @@ with tab2:
             ("Fields Used", str(len(selected_num))),
         ]):
             col.markdown(
-                f'<div class="metric-card"><div class="label">{label}</div>'
-                f'<div class="value" style="font-size:1.1rem">{value}</div></div>',
+                f'<div class="result-stat">'
+                f'<div class="result-stat-label">{label}</div>'
+                f'<div class="result-stat-value">{value}</div>'
+                f'</div>',
                 unsafe_allow_html=True,
             )
 
         st.markdown("")
 
-        # Group size chart with plain labels
-        st.markdown("### How Records Are Distributed Across Groups")
+        # Group distribution chart
+        st.markdown('<div class="section-header">Records per Group</div>', unsafe_allow_html=True)
         size_data = pd.Series(labels).value_counts().sort_index().reset_index()
         size_data.columns = ["Group", "Records"]
         size_data["Group"] = size_data["Group"].apply(lambda x: f"Group {x + 1}")
         size_data["Share"] = (size_data["Records"] / size_data["Records"].sum() * 100).round(1)
-        size_data["Label"] = size_data.apply(
-            lambda r: f"{r['Records']:,} records ({r['Share']}%)", axis=1
-        )
+        size_data["Label"] = size_data.apply(lambda r: f"{r['Records']:,} ({r['Share']}%)", axis=1)
         fig_sizes = px.bar(
             size_data, x="Group", y="Records", color="Group",
-            text="Label",
-            color_discrete_sequence=PALETTE,
+            text="Label", color_discrete_sequence=PALETTE,
             title="Records per Group",
         )
         fig_sizes.update_traces(textposition="outside")
-        fig_sizes.update_layout(showlegend=False, **BASE_LAYOUT, height=360)
-        fig_sizes.update_xaxes(gridcolor="#f1f5f9")
-        fig_sizes.update_yaxes(gridcolor="#f1f5f9")
+        fig_sizes.update_layout(**chart_layout(360), showlegend=False)
+        fig_sizes.update_xaxes(gridcolor="#21262d")
+        fig_sizes.update_yaxes(gridcolor="#21262d")
         st.plotly_chart(fig_sizes, use_container_width=True)
 
-        # Group profiles in plain language
+        # Group profiles
         valid_num = [c for c in selected_num if c in df_clustered.columns]
         if valid_num:
-            st.markdown("### Group Profiles")
-            st.caption(
-                "Average values for each field across groups. "
-                "Use this to understand what makes each group different."
-            )
+            st.markdown('<div class="section-header">Group Profiles</div>', unsafe_allow_html=True)
+            st.caption("Average values for each field across groups.")
             profile_raw = df_clustered.groupby("Cluster")[valid_num].mean().round(2)
             profile_raw.index = [f"Group {i + 1}" for i in profile_raw.index]
             profile_raw.index.name = "Group"
             st.dataframe(profile_raw, use_container_width=True)
 
-            # Highlight what is distinctive per group
-            st.markdown("### What Makes Each Group Distinct")
+            st.markdown('<div class="section-header">What Makes Each Group Distinct</div>', unsafe_allow_html=True)
             overall_means = df_clustered[valid_num].mean()
-            for cluster in sorted(set(labels)):
+            group_colors = ["positive", "", "warning", ""]
+            for idx, cluster in enumerate(sorted(set(labels))):
                 subset = df_clustered[df_clustered["Cluster"] == cluster]
                 size = len(subset)
                 pct = round(100 * size / len(df_clustered), 1)
@@ -1049,17 +1268,18 @@ with tab2:
                             f"{col} is {abs(diff):.0f}% {direction} than average ({cm:.2f} vs {om:.2f})"
                         )
                 if differences:
-                    summary = f"{group_label} — {size:,} records ({pct}%): " + "; ".join(differences)
+                    summary = f"<strong>{group_label}</strong> — {size:,} records ({pct}%): " + "; ".join(differences)
                 else:
-                    summary = f"{group_label} — {size:,} records ({pct}%): Close to average across all fields."
+                    summary = f"<strong>{group_label}</strong> — {size:,} records ({pct}%): Close to average across all fields."
+                color_class = group_colors[idx % len(group_colors)]
                 st.markdown(
-                    f'<div class="insight-box">{summary}</div>',
+                    f'<div class="insight-box {color_class}">{summary}</div>',
                     unsafe_allow_html=True,
                 )
 
-        # Group scatter plot using PCA — with plain language
+        # PCA scatter
         if st.session_state.scaled_df is not None:
-            st.markdown("### Visual Map of Groups")
+            st.markdown('<div class="section-header">Visual Map of Groups</div>', unsafe_allow_html=True)
             st.caption(
                 "Each dot represents one record. Dots close together share similar "
                 "characteristics. Colour shows which group each record belongs to."
@@ -1087,19 +1307,15 @@ with tab2:
                     "they were. The number with the highest separation score was selected automatically."
                 )
                 st.plotly_chart(
-                    plot_elbow(
-                        st.session_state.ks,
-                        st.session_state.inertias,
-                        st.session_state.sil_scores,
-                    ),
+                    plot_elbow(st.session_state.ks, st.session_state.inertias, st.session_state.sil_scores),
                     use_container_width=True,
                 )
 
-        st.markdown("### Full Segmented Dataset")
+        st.markdown('<div class="section-header">Full Segmented Dataset</div>', unsafe_allow_html=True)
         display_df = df_clustered.copy()
         display_df["Group"] = display_df["Cluster"].apply(lambda x: f"Group {x + 1}")
         display_df = display_df.drop(columns=["Cluster"])
-        st.dataframe(display_df, use_container_width=True, height=350)
+        st.dataframe(display_df, use_container_width=True, height=320)
         st.download_button(
             "Download Segmented Data",
             display_df.to_csv(index=False).encode(),
@@ -1108,43 +1324,25 @@ with tab2:
         )
 
 
-# ═══ TAB 3: Visualizations ════════════════════════════════════════════════════
+# ════════════════ TAB 3: Visualizations ══════════════════════════════════════
 with tab3:
-    if df is None:
-        st.info("Upload a CSV file to start building charts.")
-        st.stop()
-
     all_cols = df.columns.tolist()
     num_cols_viz = [c for c in all_cols if pd.api.types.is_numeric_dtype(df[c])]
     cat_cols_viz = [c for c in all_cols if not pd.api.types.is_numeric_dtype(df[c])]
 
-    # ── Chart Builder ────────────────────────────────────────────────────────
-    st.markdown("### Chart Builder")
-    st.caption("Select a chart type and configure the fields below. The chart updates instantly.")
+    st.markdown('<div class="section-header">Chart Builder</div>', unsafe_allow_html=True)
+    st.caption("Select a chart type and configure the fields below.")
 
     CHART_TYPES = [
-        "Bar Chart",
-        "Line Chart",
-        "Scatter Plot",
-        "Histogram",
-        "Box Plot",
-        "Pie Chart",
-        "Area Chart",
-        "Heatmap (Correlation)",
+        "Bar Chart", "Line Chart", "Scatter Plot", "Histogram",
+        "Box Plot", "Pie Chart", "Area Chart", "Heatmap (Correlation)",
     ]
-
     AGGREGATIONS = ["Sum", "Average", "Count", "Count Distinct", "Min", "Max", "Median"]
 
-    # Controls row
     cc1, cc2, cc3 = st.columns([1, 1, 1])
     chart_type = cc1.selectbox("Chart Type", CHART_TYPES, key="vz_chart_type")
-    color_col = cc3.selectbox(
-        "Colour by (optional)",
-        ["None"] + cat_cols_viz,
-        key="vz_color",
-    )
+    color_col = cc3.selectbox("Colour by (optional)", ["None"] + cat_cols_viz, key="vz_color")
 
-    # Field selectors change based on chart type
     x_col, y_col, agg_func = None, None, "Count"
 
     if chart_type == "Histogram":
@@ -1184,10 +1382,8 @@ with tab3:
         size_col = fc3.selectbox("Size by (optional)", ["None"] + num_cols_viz, key="vz_size")
 
     else:
-        # Bar, Line, Box, Area — all follow x + y + aggregation pattern
         fc1, fc2, fc3 = st.columns(3)
-
-        if chart_type in ["Box Plot"]:
+        if chart_type == "Box Plot":
             x_col = fc1.selectbox("Category (X axis)", cat_cols_viz or all_cols, key="vz_x")
             y_col = fc2.selectbox("Value (Y axis)", num_cols_viz or all_cols, key="vz_y")
         elif chart_type in ["Line Chart", "Area Chart"]:
@@ -1195,7 +1391,6 @@ with tab3:
             y_col = fc2.selectbox("Y axis", num_cols_viz or all_cols, key="vz_y")
             agg_func = fc3.selectbox("Aggregation", AGGREGATIONS, key="vz_agg")
         else:
-            # Bar chart — most flexible
             x_col = fc1.selectbox("X axis (Category or Field)", all_cols, key="vz_x")
             y_col = fc2.selectbox(
                 "Y axis (Value — leave as Count to count records)",
@@ -1208,31 +1403,21 @@ with tab3:
             else:
                 agg_func = fc3.selectbox("Aggregation", AGGREGATIONS, key="vz_agg")
 
-    # ── Apply aggregation and build chart ─────────────────────────────────────
     def apply_aggregation(df, x_col, y_col, agg_func, color_col=None):
-        """Aggregate df by x_col (and optionally color_col) using agg_func on y_col."""
         group_cols = [x_col]
         if color_col and color_col != "None" and color_col in df.columns:
             group_cols.append(color_col)
-
         if y_col is None or agg_func == "Count":
             agg_df = df.groupby(group_cols).size().reset_index(name="Count")
             return agg_df, "Count"
-
         agg_map = {
-            "Sum": "sum",
-            "Average": "mean",
-            "Min": "min",
-            "Max": "max",
-            "Median": "median",
-            "Count Distinct": "nunique",
-            "Count": "count",
+            "Sum": "sum", "Average": "mean", "Min": "min",
+            "Max": "max", "Median": "median", "Count Distinct": "nunique", "Count": "count",
         }
         agg_df = df.groupby(group_cols)[y_col].agg(agg_map[agg_func]).reset_index()
         agg_df.columns = group_cols + [f"{agg_func} of {y_col}"]
         return agg_df, f"{agg_func} of {y_col}"
 
-    # Build and display chart
     chart_error = None
     fig_vz = None
 
@@ -1240,13 +1425,9 @@ with tab3:
         color_val = color_col if color_col != "None" and color_col in df.columns else None
 
         if chart_type == "Histogram":
-            fig_vz = px.histogram(
-                df, x=x_col,
-                nbins=bins,
-                color=color_val,
-                color_discrete_sequence=PALETTE,
-                title=f"Distribution of {x_col}",
-            )
+            fig_vz = px.histogram(df, x=x_col, nbins=bins, color=color_val,
+                                   color_discrete_sequence=PALETTE,
+                                   title=f"Distribution of {x_col}")
 
         elif chart_type == "Pie Chart":
             if y_col and agg_func != "Count":
@@ -1258,78 +1439,50 @@ with tab3:
             else:
                 pie_data = df[x_col].value_counts().reset_index()
                 pie_data.columns = [x_col, "Value"]
-            fig_vz = px.pie(
-                pie_data, names=x_col, values="Value",
-                color_discrete_sequence=PALETTE,
-                title=f"{x_col} breakdown",
-            )
+            fig_vz = px.pie(pie_data, names=x_col, values="Value",
+                             color_discrete_sequence=PALETTE, title=f"{x_col} breakdown")
 
         elif chart_type == "Scatter Plot":
             size_val = size_col if size_col != "None" else None
-            fig_vz = px.scatter(
-                df, x=x_col, y=y_col,
-                color=color_val,
-                size=size_val,
-                color_discrete_sequence=PALETTE,
-                title=f"{x_col} vs {y_col}",
-                opacity=0.7,
-            )
+            fig_vz = px.scatter(df, x=x_col, y=y_col, color=color_val, size=size_val,
+                                 color_discrete_sequence=PALETTE,
+                                 title=f"{x_col} vs {y_col}", opacity=0.7)
             fig_vz.update_traces(marker=dict(size=8 if not size_val else None))
 
         elif chart_type == "Box Plot":
-            fig_vz = px.box(
-                df, x=x_col, y=y_col,
-                color=color_val or x_col,
-                color_discrete_sequence=PALETTE,
-                title=f"{y_col} by {x_col}",
-            )
+            fig_vz = px.box(df, x=x_col, y=y_col, color=color_val or x_col,
+                             color_discrete_sequence=PALETTE, title=f"{y_col} by {x_col}")
 
         elif chart_type == "Heatmap (Correlation)":
             if len(selected_for_corr) < 2:
                 chart_error = "Select at least 2 numerical fields to generate a correlation heatmap."
             else:
                 corr = df[selected_for_corr].corr()
-                fig_vz = px.imshow(
-                    corr, text_auto=".2f", aspect="auto",
-                    color_continuous_scale="RdBu_r",
-                    title="Correlation Heatmap",
-                )
+                fig_vz = px.imshow(corr, text_auto=".2f", aspect="auto",
+                                    color_continuous_scale="Blues", title="Correlation Heatmap")
 
         elif chart_type == "Line Chart":
             agg_df, y_label = apply_aggregation(df, x_col, y_col, agg_func, color_val)
             line_color = color_val if color_val and color_val in agg_df.columns else None
-            fig_vz = px.line(
-                agg_df, x=x_col, y=y_label,
-                color=line_color,
-                color_discrete_sequence=PALETTE,
-                title=f"{y_label} by {x_col}",
-                markers=True,
-            )
+            fig_vz = px.line(agg_df, x=x_col, y=y_label, color=line_color,
+                              color_discrete_sequence=PALETTE,
+                              title=f"{y_label} by {x_col}", markers=True)
 
         elif chart_type == "Area Chart":
             agg_df, y_label = apply_aggregation(df, x_col, y_col, agg_func, color_val)
             area_color = color_val if color_val and color_val in agg_df.columns else None
-            fig_vz = px.area(
-                agg_df, x=x_col, y=y_label,
-                color=area_color,
-                color_discrete_sequence=PALETTE,
-                title=f"{y_label} by {x_col}",
-            )
+            fig_vz = px.area(agg_df, x=x_col, y=y_label, color=area_color,
+                              color_discrete_sequence=PALETTE, title=f"{y_label} by {x_col}")
 
         else:
-            # Bar Chart
             agg_df, y_label = apply_aggregation(df, x_col, y_col, agg_func, color_val)
             bar_color = color_val if color_val and color_val in agg_df.columns else x_col
             if bar_color not in agg_df.columns:
                 bar_color = None
             sort_vals = agg_df.sort_values(y_label, ascending=False)
-            fig_vz = px.bar(
-                sort_vals, x=x_col, y=y_label,
-                color=bar_color,
-                color_discrete_sequence=PALETTE,
-                title=f"{y_label} by {x_col}",
-                text=y_label,
-            )
+            fig_vz = px.bar(sort_vals, x=x_col, y=y_label, color=bar_color,
+                             color_discrete_sequence=PALETTE,
+                             title=f"{y_label} by {x_col}", text=y_label)
             fig_vz.update_traces(texttemplate="%{text:,.1f}", textposition="outside")
 
     except Exception as e:
@@ -1339,32 +1492,27 @@ with tab3:
         st.warning(f"Could not build chart: {chart_error}")
     elif fig_vz is not None:
         fig_vz = apply_base(fig_vz, 460)
-        if chart_type not in ["Pie Chart", "Heatmap (Correlation)"]:
-            fig_vz.update_xaxes(gridcolor="#f1f5f9")
-            fig_vz.update_yaxes(gridcolor="#f1f5f9")
         st.plotly_chart(fig_vz, use_container_width=True)
 
     st.markdown("---")
 
-    # ── Auto Overview Charts ──────────────────────────────────────────────────
+    # Auto-generated overview
     auto_visuals = st.session_state.auto_visuals
     if auto_visuals:
-        st.markdown("### Auto-Generated Overview")
+        st.markdown('<div class="section-header">Auto-Generated Overview</div>', unsafe_allow_html=True)
         st.caption("These charts are built automatically from your data on upload.")
         for title, fig_auto in auto_visuals:
             st.plotly_chart(fig_auto, use_container_width=True)
-    elif not auto_visuals and df is not None:
-        st.info("Upload a CSV file to see automatic overview charts.")
 
 
-# ═══ TAB 4: AI Chat ═══════════════════════════════════════════════════════════
+# ════════════════ TAB 4: AI Chat ══════════════════════════════════════════════
 with tab4:
-    st.markdown("### AI Chat Assistant")
+    st.markdown('<div class="section-header">AI Chat Assistant</div>', unsafe_allow_html=True)
 
     if not get_api_key():
         st.error(
             "No API key configured. In Streamlit Cloud go to: "
-            "Manage app (bottom-right) → three-dot menu → Settings → Secrets tab, "
+            "Manage app > three-dot menu > Settings > Secrets tab, "
             "and add:\n\n`OPENROUTER_API_KEY = \"your-key-here\"`\n\n"
             "Get a free key at openrouter.ai"
         )
@@ -1378,20 +1526,23 @@ with tab4:
     cluster_col = "Cluster" if st.session_state.df_clustered is not None else None
     exact_cols = [c.strip() for c in working_df.columns.tolist()]
 
+    st.caption("Ask questions about your data or request a chart.")
     st.markdown(
-        "Ask questions about your data or request a chart.\n\n"
-        "- *What patterns do you see in this data?*\n"
-        "- *Show a bar chart of Sentiment by Location*\n"
-        "- *Which location has the highest average confidence score?*"
+        '<div class="insight-box" style="margin-bottom:1rem; font-size:0.82rem; color:#8b949e;">'
+        'Examples: &nbsp; "What patterns do you see in this data?" &nbsp;|&nbsp; '
+        '"Show a bar chart of Sentiment by Location" &nbsp;|&nbsp; '
+        '"Which location has the highest average confidence score?"'
+        '</div>',
+        unsafe_allow_html=True,
     )
-    st.markdown("---")
 
     if st.session_state.chat_history:
-        if st.button("Clear chat"):
+        st.markdown('<div class="sec-btn" style="max-width:120px">', unsafe_allow_html=True)
+        if st.button("Clear chat", key="clear_chat"):
             st.session_state.chat_history = []
             st.rerun()
+        st.markdown('</div>', unsafe_allow_html=True)
 
-    # Render history
     for msg in st.session_state.chat_history:
         if msg["role"] == "user":
             st.markdown(
@@ -1402,16 +1553,13 @@ with tab4:
             if msg.get("is_error"):
                 st.warning(msg["content"])
             elif msg.get("is_code"):
-                # Show the AI's text response cleanly
                 if msg.get("text_response"):
                     st.markdown(
                         f'<div class="chat-ai">{msg["text_response"]}</div>',
                         unsafe_allow_html=True,
                     )
-                # Show chart if successful
                 if msg.get("fig") is not None:
                     st.plotly_chart(msg["fig"], use_container_width=True)
-                # Show clean error if chart failed
                 elif msg.get("exec_error"):
                     st.markdown(
                         f'<div class="chat-ai">{msg["exec_error"]}</div>',
@@ -1423,7 +1571,6 @@ with tab4:
                     unsafe_allow_html=True,
                 )
 
-    # Chat input
     user_input = st.chat_input("Ask a question or request a chart...")
 
     if user_input:
@@ -1458,8 +1605,11 @@ with tab4:
                 - Do NOT use os, sys, open, eval, exec, requests.
                 - Column names must exactly match the list above.
                 - Always store the chart in `fig`.
-                - Apply to every chart:
-                  fig.update_layout(plot_bgcolor='white', paper_bgcolor='white', font_family='IBM Plex Mono')
+                - Apply dark theme to every chart:
+                  fig.update_layout(plot_bgcolor='#161b22', paper_bgcolor='#0d1117',
+                                    font_color='#c9d1d9', font_family='JetBrains Mono')
+                  fig.update_xaxes(gridcolor='#21262d', zerolinecolor='#30363d')
+                  fig.update_yaxes(gridcolor='#21262d', zerolinecolor='#30363d')
 
                 Format your response as:
                 [One sentence description]
@@ -1490,13 +1640,11 @@ with tab4:
                 {"role": "assistant", "content": response, "is_error": True}
             )
         elif wants_viz:
-            # Separate the text description from the code block
             code_match = re.search(r"```(?:python)?(.*?)```", response, re.DOTALL)
             if code_match:
                 code_only = code_match.group(1).strip()
                 text_only = response[:response.find("```")].strip()
             else:
-                # No code fences — treat entire response as code
                 code_only = response.strip()
                 text_only = "Here is the chart:"
 
