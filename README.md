@@ -11,7 +11,7 @@ Ask questions in plain English. Get charts on demand. Understand your customers 
 ## Demo 1
 
 <div align="center">
-  <img src="" alt="Demo" width="800">
+  <img src="https://github.com/Omensah-15/InsightForge-AI/blob/a82b29d0ed144c900b0c1f68f47237287da9ffec/assets/insightforgedemo.gif" alt="Demo" width="800">
 </div>
 
 ## Demo 2 - AI Chat
