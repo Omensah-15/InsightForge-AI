@@ -77,16 +77,6 @@ For Streamlit Cloud deployment, add the key under app Settings → Secrets:
 ```toml
 OPENROUTER_API_KEY = "sk-or-v1-your-key-here"
 ```
-
----
-
-## Usage
-
-1. Upload a CSV file from the sidebar
-2. Select the fields to base segmentation on and click Run Segmentation
-3. Explore the Overview, Clustering, Visualizations, and AI Chat tabs
-4. Use Data Actions in the Overview tab to clean or reshape data before analysis
-
 ---
 
 ## Author
