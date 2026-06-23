@@ -10,8 +10,10 @@ Ask questions in plain English. Get charts on demand. Understand your customers 
 
 ## Demo 1
 
+<video src="insightforgedemo.mp4" controls width="800"></video>
+
 <div align="center">
-  <img src="https://github.com/Omensah-15/TropiCare_/blob/837bf29bdba0109786b18e5ebc5457a16fbe1a76/assets/demov1.gif" alt="Demo" width="800">
+  <img src="" alt="Demo" width="800">
 </div>
 
 ## Demo 2 - AI Chat
