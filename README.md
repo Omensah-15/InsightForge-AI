@@ -8,6 +8,26 @@ Ask questions in plain English. Get charts on demand. Understand your customers 
 
 ---
 
+## Demo 1
+
+<div align="center">
+  <img src="https://github.com/Omensah-15/TropiCare_/blob/837bf29bdba0109786b18e5ebc5457a16fbe1a76/assets/demov1.gif" alt="Demo" width="800">
+</div>
+
+## Demo 2 - AI Chat
+
+<div align="center">
+  <img src="https://github.com/Omensah-15/TropiCare_/blob/837bf29bdba0109786b18e5ebc5457a16fbe1a76/assets/demov2.gif" alt="Demo" width="800">
+</div>
+
+## Demo 3 - Segmentation
+
+<div align="center">
+  <img src="https://github.com/Omensah-15/TropiCare_/blob/8bfca0330a4367087bbb3039e04fb98ca37f5236/assets/demotesting.gif" alt="Demo" width="800">
+</div>
+
+---
+
 ## What It Does
 
 - Automatically detects numerical, categorical, and text fields in any CSV
