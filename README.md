@@ -10,8 +10,6 @@ Ask questions in plain English. Get charts on demand. Understand your customers 
 
 ## Demo 1
 
-<video src="https://github.com/Omensah-15/InsightForge-AI/blob/800452ae9f11b35718cbdaabc69cb8f3c78ae46f/assets/insightforgedemo.mp4" controls width="800"></video>
-
 <div align="center">
   <img src="" alt="Demo" width="800">
 </div>
