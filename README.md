@@ -17,13 +17,13 @@ Ask questions in plain English. Get charts on demand. Understand your customers 
 ## Demo 2 - AI Chat
 
 <div align="center">
-  <img src="https://github.com/Omensah-15/TropiCare_/blob/837bf29bdba0109786b18e5ebc5457a16fbe1a76/assets/demov2.gif" alt="Demo" width="800">
+  <img src="https://github.com/Omensah-15/InsightForge-AI/blob/de90830d535946ba5ba750fd093baae63f1e1a64/assets/AI_Chatdemo.gif" alt="Demo" width="800">
 </div>
 
 ## Demo 3 - Segmentation
 
 <div align="center">
-  <img src="https://github.com/Omensah-15/TropiCare_/blob/8bfca0330a4367087bbb3039e04fb98ca37f5236/assets/demotesting.gif" alt="Demo" width="800">
+  <img src="https://github.com/Omensah-15/InsightForge-AI/blob/de90830d535946ba5ba750fd093baae63f1e1a64/assets/segmentdemo.gif" alt="Demo" width="800">
 </div>
 
 ---
